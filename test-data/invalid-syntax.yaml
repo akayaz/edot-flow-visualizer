@@ -1,0 +1,17 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http: [this is invalid yaml
+    - missing colon here
+  broken_indentation
+
+processors:
+memory_limiter:  # Wrong indentation
+    limit_mib: 512
+
+exporters:
+  otlp:
+    endpoint: ${ENDPOINT}
+

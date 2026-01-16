@@ -1,0 +1,192 @@
+# Cursor Rules for EDOT Flow Visualizer
+
+You are an expert React/Next.js developer building an interactive OpenTelemetry visualization tool focused on Elastic's distribution (EDOT).
+
+## Project Context
+
+This is the **EDOT Flow Visualizer** - an educational tool that shows how telemetry data flows through OpenTelemetry components. The primary goals are:
+
+1. **Visual impact** - Smooth animations, modern UI, "wow factor"
+2. **Educational** - Help users understand EDOT architecture patterns
+3. **Practical** - Generate working Collector YAML configs
+
+## Tech Stack (Do Not Deviate)
+
+- **Next.js 14+** with App Router (NOT Pages Router)
+- **@xyflow/react** (React Flow v12) for node-based diagrams
+- **Framer Motion** for animations
+- **Zustand** for state management
+- **Tailwind CSS** + **shadcn/ui** for styling
+- **TypeScript** - strict mode, no `any` types
+
+## Code Style Rules
+
+### TypeScript
+- Always use explicit return types on functions
+- Use interfaces over types where possible
+- No `any` - use `unknown` if truly needed
+- Prefer discriminated unions for variants
+
+### React
+- Functional components only
+- Use `'use client'` directive for client components
+- Wrap node components in `React.memo()`
+- Use `useCallback` for event handlers passed to children
+- Prefer composition over prop drilling
+
+### Imports
+```typescript
+// Order: React, Next, external libs, internal absolute, internal relative
+import { memo, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
+import { useFlowStore } from '@/app/otel-flow/store/flowStore';
+import type { EDOTNodeData } from '../types';
+```
+
+### File Naming
+- Components: PascalCase (`EDOTSDKNode.tsx`)
+- Utilities: camelCase (`yaml-generator.ts`)
+- Types: PascalCase in file, at top of file or in `types.ts`
+
+## EDOT-Specific Knowledge
+
+### Component Types
+1. **EDOT SDK** - Instrumented application (Java, Python, Node.js, .NET, Go)
+2. **Collector Agent** - Per-host/sidecar, collects host metrics
+3. **Collector Gateway** - Centralized, handles sampling/routing
+4. **Elastic APM/Observability** - Backend destination
+
+### Collector Config Structure
+```yaml
+receivers:
+  otlp:
+    protocols:
+      grpc: { endpoint: "0.0.0.0:4317" }
+      http: { endpoint: "0.0.0.0:4318" }
+  hostmetrics:
+    collection_interval: 30s
+    scrapers: { cpu: {}, memory: {}, disk: {} }
+
+processors:
+  memory_limiter:  # ALWAYS first
+    check_interval: 1s
+    limit_mib: 1000
+  batch:
+    send_batch_size: 10000
+    timeout: 10s
+
+exporters:
+  otlp/elastic:
+    endpoint: "${ELASTIC_APM_ENDPOINT}"
+    headers:
+      Authorization: "Bearer ${ELASTIC_APM_SECRET_TOKEN}"
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp/elastic]
+```
+
+### Visual Design
+
+Colors:
+- SDK nodes: Border varies by language (Node=green, Python=yellow, Java=orange)
+- Collector Agent: Cyan (`#06b6d4`)
+- Collector Gateway: Pink/Magenta (`#ec4899`)
+- Elastic: Gradient `from-[#00bfb3] to-[#0077cc]`
+
+Particles:
+- Traces: Amber (`#f59e0b`)
+- Metrics: Blue (`#3b82f6`)
+- Logs: Emerald (`#10b981`)
+
+## Common Patterns
+
+### Creating a New Node Component
+```typescript
+'use client';
+
+import { memo } from 'react';
+import { Handle, Position, NodeProps } from '@xyflow/react';
+import { motion } from 'framer-motion';
+import type { MyNodeData } from '../../types';
+
+export const MyNode = memo(({ data, selected }: NodeProps<MyNodeData>) => {
+  return (
+    <motion.div
+      initial={{ scale: 0.8, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      className={`
+        px-4 py-3 rounded-lg bg-gray-900 border-2 border-cyan-500
+        ${selected ? 'ring-2 ring-blue-400' : ''}
+      `}
+    >
+      <Handle type="target" position={Position.Left} />
+      <div className="text-white">{data.label}</div>
+      <Handle type="source" position={Position.Right} />
+    </motion.div>
+  );
+});
+
+MyNode.displayName = 'MyNode';
+```
+
+### Zustand Store Pattern
+```typescript
+import { create } from 'zustand';
+
+interface MyState {
+  items: Item[];
+  addItem: (item: Item) => void;
+}
+
+export const useMyStore = create<MyState>((set) => ({
+  items: [],
+  addItem: (item) => set((state) => ({ 
+    items: [...state.items, item] 
+  })),
+}));
+```
+
+### Animated Edge with Particles
+- Use SVG `offsetPath` for particle animation along bezier curves
+- Framer Motion for smooth infinite loops
+- Glow filter for visual impact
+
+## What NOT to Do
+
+- ❌ Don't use Pages Router patterns
+- ❌ Don't use Redux or Context for state
+- ❌ Don't use CSS modules (use Tailwind)
+- ❌ Don't use class components
+- ❌ Don't add libraries without asking
+- ❌ Don't use `localStorage` directly (use Zustand persist)
+- ❌ Don't hardcode Elastic endpoints (use env vars)
+
+## Priority Order
+
+When implementing features, focus on:
+1. **Visual polish** - Animations, transitions, micro-interactions
+2. **Correctness** - Type safety, valid configs
+3. **Performance** - Memoization, throttling
+4. **Edge cases** - Empty states, error handling
+
+## Testing Checklist
+
+Before considering a feature complete:
+- [ ] Works with 1 node
+- [ ] Works with 10+ nodes
+- [ ] Animations are smooth (60fps)
+- [ ] No TypeScript errors
+- [ ] No console errors/warnings
+- [ ] Looks good on 1920x1080 and 1366x768
+
+## Key Documentation
+
+- React Flow: https://reactflow.dev/docs
+- Framer Motion: https://www.framer.com/motion/
+- EDOT Docs: https://www.elastic.co/docs/reference/opentelemetry
+- OTel Collector Config: https://opentelemetry.io/docs/collector/configuration/

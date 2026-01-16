@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: GitHub Discussions
+    url: https://github.com/your-org/edot-flow-visualizer/discussions
+    about: For general questions, ideas, and community discussion
+  - name: Elastic Community Forums
+    url: https://discuss.elastic.co/
+    about: For EDOT-specific questions and support from Elastic community
+  - name: Documentation
+    url: https://github.com/your-org/edot-flow-visualizer/tree/main/docs
+    about: Check our comprehensive documentation for guides and tutorials

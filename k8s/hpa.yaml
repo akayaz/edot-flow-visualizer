@@ -1,0 +1,68 @@
+---
+# Horizontal Pod Autoscaler - automatically scales based on CPU/Memory
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: edot-visualizer
+  namespace: edot-visualizer
+  labels:
+    app: edot-flow-visualizer
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: edot-visualizer
+
+  minReplicas: 2
+  maxReplicas: 10
+
+  # Scaling behavior
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300  # Wait 5 minutes before scaling down
+      policies:
+        - type: Percent
+          value: 50  # Scale down by 50% of current pods
+          periodSeconds: 60
+        - type: Pods
+          value: 1  # Or remove 1 pod
+          periodSeconds: 60
+      selectPolicy: Min  # Use the policy that removes fewer pods
+
+    scaleUp:
+      stabilizationWindowSeconds: 0  # Scale up immediately
+      policies:
+        - type: Percent
+          value: 100  # Double the pods
+          periodSeconds: 30
+        - type: Pods
+          value: 2  # Or add 2 pods
+          periodSeconds: 30
+      selectPolicy: Max  # Use the policy that adds more pods
+
+  # Metrics to scale on
+  metrics:
+    # CPU-based scaling
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70  # Target 70% CPU usage
+
+    # Memory-based scaling
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80  # Target 80% memory usage
+
+    # Optional: Custom metrics (requires Prometheus Adapter or similar)
+    # - type: Pods
+    #   pods:
+    #     metric:
+    #       name: http_requests_per_second
+    #     target:
+    #       type: AverageValue
+    #       averageValue: "1000"

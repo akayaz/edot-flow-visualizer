@@ -1,0 +1,41 @@
+---
+# Kustomize configuration for easier Kubernetes deployment management
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: edot-visualizer
+
+# Common labels applied to all resources
+commonLabels:
+  app: edot-flow-visualizer
+  managed-by: kustomize
+
+# Resources to deploy
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  # - secret.yaml  # Uncomment when you have secrets configured
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+  - hpa.yaml
+  - pdb.yaml
+  - networkpolicy.yaml
+
+# Images to use (override with kustomize edit set image)
+images:
+  - name: edot-flow-visualizer
+    newName: edot-flow-visualizer
+    newTag: latest
+
+# ConfigMap generator (alternative to configmap.yaml)
+# configMapGenerator:
+#   - name: edot-visualizer-config
+#     literals:
+#       - NODE_ENV=production
+#       - PORT=3000
+
+# Replicas override (use with kustomize edit set replicas)
+# replicas:
+#   - name: edot-visualizer
+#     count: 2

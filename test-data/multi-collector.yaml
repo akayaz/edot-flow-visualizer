@@ -1,0 +1,114 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+  hostmetrics:
+    collection_interval: 30s
+    scrapers:
+      cpu:
+      memory:
+      disk:
+      filesystem:
+      network:
+      load:
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: 'kubernetes-pods'
+          kubernetes_sd_configs:
+            - role: pod
+  jaeger:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:14250
+  zipkin:
+    endpoint: 0.0.0.0:9411
+  filelog:
+    include:
+      - /var/log/*.log
+    operators:
+      - type: regex_parser
+        regex: '^(?P<time>\S+) (?P<level>\S+) (?P<message>.*)$'
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 2048
+    spike_limit_mib: 512
+  batch:
+    send_batch_size: 10000
+    timeout: 10s
+  tail_sampling:
+    decision_wait: 30s
+    num_traces: 50000
+    expected_new_traces_per_sec: 10
+    policies:
+      - name: errors-policy
+        type: status_code
+        status_code:
+          status_codes: [ERROR]
+      - name: slow-traces-policy
+        type: latency
+        latency:
+          threshold_ms: 1000
+  attributes:
+    actions:
+      - key: environment
+        value: production
+        action: upsert
+  resource:
+    attributes:
+      - key: k8s.cluster.name
+        value: production-cluster
+        action: insert
+  resourcedetection:
+    detectors: [env, system, docker, gcp, aws, azure]
+    timeout: 5s
+  transform:
+    trace_statements:
+      - context: span
+        statements:
+          - truncate_all(attributes, 4096)
+
+exporters:
+  otlp/elastic:
+    endpoint: ${ELASTIC_APM_ENDPOINT}
+    headers:
+      Authorization: "Bearer ${ELASTIC_APM_SECRET_TOKEN}"
+    compression: gzip
+    timeout: 30s
+  elasticsearch:
+    endpoints:
+      - ${ELASTICSEARCH_ENDPOINT}
+    auth:
+      type: api_key
+      api_key: ${ELASTICSEARCH_API_KEY}
+    logs_index: otel-logs
+    traces_index: otel-traces
+  debug:
+    verbosity: detailed
+  file:
+    path: /var/log/otel/output.json
+    rotation:
+      max_megabytes: 100
+      max_days: 7
+
+service:
+  extensions: [health_check, pprof, zpages]
+  pipelines:
+    traces:
+      receivers: [otlp, jaeger, zipkin]
+      processors: [memory_limiter, resourcedetection, attributes, resource, tail_sampling, batch]
+      exporters: [otlp/elastic, elasticsearch]
+    metrics:
+      receivers: [otlp, hostmetrics, prometheus]
+      processors: [memory_limiter, resourcedetection, attributes, resource, batch]
+      exporters: [otlp/elastic, elasticsearch]
+    logs:
+      receivers: [otlp, filelog]
+      processors: [memory_limiter, resourcedetection, attributes, resource, batch]
+      exporters: [otlp/elastic, elasticsearch, file]
+

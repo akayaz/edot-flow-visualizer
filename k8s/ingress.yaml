@@ -1,0 +1,112 @@
+---
+# Standard Ingress (works with NGINX Ingress Controller, self-managed clusters)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: edot-visualizer
+  namespace: edot-visualizer
+  labels:
+    app: edot-flow-visualizer
+  annotations:
+    # NGINX Ingress Controller annotations
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"  # For SSE connections
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+
+    # Enable WebSocket and SSE support
+    nginx.ingress.kubernetes.io/websocket-services: "edot-visualizer"
+    nginx.ingress.kubernetes.io/upstream-keepalive-timeout: "3600"
+
+    # Optional: Rate limiting
+    # nginx.ingress.kubernetes.io/limit-rps: "10"
+
+    # Optional: Cert Manager for automatic TLS
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx  # Change to your ingress class
+
+  # TLS configuration (uncomment and configure)
+  # tls:
+  #   - hosts:
+  #       - edot-visualizer.example.com
+  #     secretName: edot-visualizer-tls
+
+  rules:
+    - host: edot-visualizer.example.com  # UPDATE with your domain
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: edot-visualizer
+                port:
+                  name: http
+
+---
+# GKE-specific Ingress (uses GCE Load Balancer)
+# Uncomment this section if you're using GKE
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: edot-visualizer-gke
+#   namespace: edot-visualizer
+#   labels:
+#     app: edot-flow-visualizer
+#   annotations:
+#     kubernetes.io/ingress.class: "gce"
+#     kubernetes.io/ingress.global-static-ip-name: "edot-visualizer-ip"  # Reserve static IP first
+#     networking.gke.io/managed-certificates: "edot-visualizer-cert"
+#     kubernetes.io/ingress.allow-http: "false"
+#
+#     # GKE-specific optimizations
+#     cloud.google.com/backend-config: '{"default": "edot-visualizer-backendconfig"}'
+#     cloud.google.com/neg: '{"ingress": true}'
+# spec:
+#   rules:
+#     - host: edot-visualizer.example.com
+#       http:
+#         paths:
+#           - path: /*
+#             pathType: ImplementationSpecific
+#             backend:
+#               service:
+#                 name: edot-visualizer
+#                 port:
+#                   number: 80
+
+---
+# GKE ManagedCertificate (for automatic TLS with GKE)
+# apiVersion: networking.gke.io/v1
+# kind: ManagedCertificate
+# metadata:
+#   name: edot-visualizer-cert
+#   namespace: edot-visualizer
+# spec:
+#   domains:
+#     - edot-visualizer.example.com
+
+---
+# GKE BackendConfig (for advanced load balancer settings)
+# apiVersion: cloud.google.com/v1
+# kind: BackendConfig
+# metadata:
+#   name: edot-visualizer-backendconfig
+#   namespace: edot-visualizer
+# spec:
+#   timeoutSec: 3600  # For SSE connections
+#   connectionDraining:
+#     drainingTimeoutSec: 60
+#   sessionAffinity:
+#     affinityType: "CLIENT_IP"
+#     affinityCookieTtlSec: 10800
+#   healthCheck:
+#     checkIntervalSec: 10
+#     timeoutSec: 5
+#     healthyThreshold: 2
+#     unhealthyThreshold: 3
+#     type: HTTP
+#     requestPath: /api/health
+#     port: 3000

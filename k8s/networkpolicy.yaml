@@ -1,0 +1,61 @@
+---
+# NetworkPolicy - controls traffic flow to/from pods (requires CNI plugin support)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: edot-visualizer
+  namespace: edot-visualizer
+  labels:
+    app: edot-flow-visualizer
+spec:
+  podSelector:
+    matchLabels:
+      app: edot-flow-visualizer
+      component: frontend
+
+  policyTypes:
+    - Ingress
+    - Egress
+
+  # Ingress rules - who can connect to the pods
+  ingress:
+    # Allow traffic from Ingress controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx  # Adjust based on your ingress controller namespace
+      ports:
+        - protocol: TCP
+          port: 3000
+
+    # Allow traffic from other pods in the same namespace (if needed)
+    - from:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 3000
+
+  # Egress rules - where pods can connect to
+  egress:
+    # Allow DNS resolution
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+
+    # Allow HTTPS to external services (Elastic APM, etc.)
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+
+    # Allow HTTP to external services
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 80

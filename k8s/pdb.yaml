@@ -1,0 +1,18 @@
+---
+# PodDisruptionBudget - ensures minimum availability during voluntary disruptions
+# (e.g., node drains, cluster upgrades)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: edot-visualizer
+  namespace: edot-visualizer
+  labels:
+    app: edot-flow-visualizer
+spec:
+  minAvailable: 1  # Always keep at least 1 pod running
+  # Alternative: maxUnavailable: 1  # Allow at most 1 pod to be unavailable
+
+  selector:
+    matchLabels:
+      app: edot-flow-visualizer
+      component: frontend
