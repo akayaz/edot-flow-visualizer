@@ -58,12 +58,19 @@ const paletteItems: PaletteItem[] = [
         receivers: [
           { type: 'otlp', enabled: true },
           { type: 'hostmetrics', enabled: true },
+          { type: 'filelog', enabled: true },
         ],
         processors: [
           { type: 'memory_limiter', enabled: true },
+          { type: 'resourcedetection', enabled: true },
           { type: 'batch', enabled: true },
         ],
-        exporters: [{ type: 'elasticsearch', enabled: true }],
+        // Agent forwards to Gateway via OTLP by default
+        // Elasticsearch available but disabled - user can enable it
+        exporters: [
+          { type: 'otlp', enabled: true },
+          { type: 'elasticsearch', enabled: false },
+        ],
       },
     },
   },
@@ -78,10 +85,16 @@ const paletteItems: PaletteItem[] = [
         receivers: [{ type: 'otlp', enabled: true }],
         processors: [
           { type: 'memory_limiter', enabled: true },
+          { type: 'resourcedetection', enabled: true },
           { type: 'batch', enabled: true },
-          { type: 'tail_sampling', enabled: true },
+          { type: 'elasticapm', enabled: true }, // Must be LAST - required for Elastic APM UIs
         ],
-        exporters: [{ type: 'elasticsearch', enabled: true }],
+        // Gateway exports to Elasticsearch by default
+        // OTLP available for forwarding to another collector
+        exporters: [
+          { type: 'otlp', enabled: false },
+          { type: 'elasticsearch', enabled: true },
+        ],
       },
     },
   },

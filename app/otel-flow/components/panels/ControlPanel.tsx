@@ -24,6 +24,7 @@ export const ControlPanel = memo(({ onToggleDemo, onOpenDetection }: ControlPane
   const { isSmall, isLarge } = useBreakpoint();
 
   const {
+    nodes,
     scenario,
     setScenario,
     isAnimating,
@@ -229,7 +230,7 @@ export const ControlPanel = memo(({ onToggleDemo, onOpenDetection }: ControlPane
         {/* Divider - View | Edit */}
         <div className="w-px h-8 bg-gray-700" />
 
-        {/* EDIT GROUP: Reset (isolated as destructive) */}
+        {/* EDIT GROUP: Clear Canvas (isolated as destructive) */}
         <motion.button
           onClick={resetToOriginal}
           whileHover={{ scale: 1.05 }}
@@ -237,12 +238,13 @@ export const ControlPanel = memo(({ onToggleDemo, onOpenDetection }: ControlPane
           className={`
             p-2 rounded-lg transition-colors
             ${
-              scenario === 'custom'
+              nodes.length > 0
                 ? 'bg-orange-500/10 text-orange-400 hover:bg-orange-500/20'
-                : 'text-gray-400 hover:text-orange-400 hover:bg-orange-500/10'
+                : 'text-gray-500 cursor-not-allowed'
             }
           `}
-          title="Reset to original layout (⌘Z)"
+          title="Clear canvas"
+          disabled={nodes.length === 0}
         >
           <RotateCcw size={16} />
         </motion.button>

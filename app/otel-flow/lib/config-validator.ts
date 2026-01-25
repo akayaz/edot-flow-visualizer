@@ -87,20 +87,43 @@ export function validateCollectorConfig(data: CollectorNodeData): ValidationResu
     });
   }
 
-  // Warning: batch processor should be last (if present)
+  // Per EDOT docs: elasticapm processor should ALWAYS be the LAST processor in Gateway mode
+  // https://www.elastic.co/docs/reference/edot-collector/components/elasticapmprocessor
   const batchIndex = enabledProcessors.findIndex((p) => p.type === 'batch');
-  if (batchIndex !== -1 && batchIndex < enabledProcessors.length - 1) {
-    // Check if processors after batch are only elasticapm-related
+  const elasticApmIndex = enabledProcessors.findIndex((p) => p.type === 'elasticapm');
+  
+  // For Gateway mode with elasticapm: elasticapm must be LAST
+  if (isGateway && elasticApmIndex !== -1) {
+    // Check if elasticapm is the last processor
+    if (elasticApmIndex !== enabledProcessors.length - 1) {
+      warnings.push({
+        id: 'elasticapm-not-last',
+        severity: 'warning',
+        message: 'elasticapm processor must be the LAST processor',
+        suggestion: 'Per EDOT docs: elasticapm should always be the last processor in the chain. Move it to the end.',
+      });
+    }
+    // Check if batch comes before elasticapm
+    if (batchIndex !== -1 && batchIndex > elasticApmIndex) {
+      warnings.push({
+        id: 'batch-after-elasticapm',
+        severity: 'warning',
+        message: 'batch processor should come BEFORE elasticapm',
+        suggestion: 'Correct order: memory_limiter → ... → batch → elasticapm (last)',
+      });
+    }
+  } else if (batchIndex !== -1 && batchIndex < enabledProcessors.length - 1) {
+    // For non-Gateway or no elasticapm: batch should generally be last (traditional approach)
     const processorsAfterBatch = enabledProcessors.slice(batchIndex + 1);
-    const hasNonBatchProcessor = processorsAfterBatch.some(
+    const hasNonElasticProcessor = processorsAfterBatch.some(
       (p) => !['elasticapm', 'spanmetrics'].includes(p.type)
     );
-    if (hasNonBatchProcessor) {
-      warnings.push({
+    if (hasNonElasticProcessor) {
+      info.push({
         id: 'batch-not-last',
-        severity: 'warning',
-        message: 'batch processor should typically be last',
-        suggestion: 'Place batch at the end of the pipeline for optimal batching efficiency',
+        severity: 'info',
+        message: 'batch processor is not the last processor',
+        suggestion: 'For Agent mode, batch typically comes last. For Gateway with elasticapm, elasticapm must be last.',
       });
     }
   }
@@ -113,6 +136,19 @@ export function validateCollectorConfig(data: CollectorNodeData): ValidationResu
       severity: 'warning',
       message: 'tail_sampling is enabled in Agent mode',
       suggestion: 'Tail sampling works best in Gateway mode where all traces are available for decision making',
+    });
+  }
+
+  // Warning: Gateway with Elasticsearch exporter should have elasticapm processor
+  // Required for Elastic APM UIs to work properly
+  const hasElasticsearchExporter = enabledExporters.some((e) => e.type === 'elasticsearch');
+  const hasElasticApmProcessor = enabledProcessors.some((p) => p.type === 'elasticapm');
+  if (isGateway && hasElasticsearchExporter && !hasElasticApmProcessor) {
+    warnings.push({
+      id: 'gateway-no-elasticapm',
+      severity: 'warning',
+      message: 'Gateway with Elasticsearch exporter missing elasticapm processor',
+      suggestion: 'Enable elasticapm processor for Elastic APM UIs to work properly. It enriches traces and generates APM metrics.',
     });
   }
 

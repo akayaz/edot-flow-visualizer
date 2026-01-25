@@ -17,6 +17,7 @@ import { AlertTriangle, X } from 'lucide-react';
 
 import { useFlowStore } from '../store/flowStore';
 import { useValidationStore } from '../store/validationStore';
+import { useHealthScoreStore } from '../store/healthScoreStore';
 import { nodeTypes } from './nodes';
 import { edgeTypes } from './edges';
 import { ComponentPalette } from './panels/ComponentPalette';
@@ -249,6 +250,7 @@ function FlowCanvas() {
   } = useFlowStore();
 
   const { validateTopology } = useValidationStore();
+  const { calculate: calculateHealthScore, autoCalculate } = useHealthScoreStore();
 
   // Trigger validation whenever nodes, edges, or deployment model changes
   useEffect(() => {
@@ -260,6 +262,18 @@ function FlowCanvas() {
       deploymentModel,
     });
   }, [nodes, edges, selectedNodeId, scenario, deploymentModel, validateTopology]);
+
+  // Trigger health score calculation whenever topology changes
+  useEffect(() => {
+    if (autoCalculate) {
+      calculateHealthScore({
+        nodes,
+        edges,
+        scenario,
+        deploymentModel,
+      });
+    }
+  }, [nodes, edges, scenario, deploymentModel, autoCalculate, calculateHealthScore]);
 
   // Handle node click
   const onNodeClick = useCallback(

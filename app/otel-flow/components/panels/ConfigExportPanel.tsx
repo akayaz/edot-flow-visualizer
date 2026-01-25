@@ -90,7 +90,7 @@ Total: ${bundlePreview.length} files
           return '# No collector found in topology\n# Add a Collector Agent or Gateway to generate config';
         }
 
-        return generateCollectorYAML(collector.data as CollectorNodeData);
+        return generateCollectorYAML(collector.data as CollectorNodeData, { deploymentModel });
     }
   }, [exportType, selectedCollector, collectors, nodes, edges, deploymentModel, bundlePreview]);
 

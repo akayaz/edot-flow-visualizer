@@ -14,6 +14,7 @@ import { nanoid } from 'nanoid';
 import { scenarios } from '../data/scenarios';
 import { validateConnection } from '../lib/connection-validator';
 import type { ScenarioId, EDOTNodeData, FlowEdgeData, DeploymentModel, CollectorNodeData } from '../types';
+import { useHealthScoreStore } from './healthScoreStore';
 
 interface SetDetectedTopologyOptions {
   animate?: boolean;
@@ -225,15 +226,35 @@ export const useFlowStore = create<FlowStore>()(
           edges: clonedEdges,
           selectedNodeId: null,
         });
+
+        // Trigger health score calculation for new scenario
+        const { deploymentModel } = get();
+        const { autoCalculate, calculate } = useHealthScoreStore.getState();
+        if (autoCalculate) {
+          calculate({ nodes: clonedNodes, edges: clonedEdges, deploymentModel, scenario: scenarioId });
+        }
       },
 
       // Handle node position changes, selection, etc.
       onNodesChange: (changes) => {
+        const hasSignificantChange = changes.some(
+          (c) => c.type === 'add' || c.type === 'remove'
+        );
+
         set({
           nodes: applyNodeChanges(changes, get().nodes),
           // Mark as custom if nodes are modified (except selection)
           scenario: changes.some((c) => c.type !== 'select') ? 'custom' : get().scenario,
         });
+
+        // Trigger health score recalculation for significant changes
+        if (hasSignificantChange) {
+          const { nodes, edges, deploymentModel, scenario } = get();
+          const { autoCalculate, calculate } = useHealthScoreStore.getState();
+          if (autoCalculate) {
+            calculate({ nodes, edges, deploymentModel, scenario });
+          }
+        }
       },
 
       // Handle edge changes
@@ -242,6 +263,13 @@ export const useFlowStore = create<FlowStore>()(
           edges: applyEdgeChanges(changes, get().edges),
           scenario: 'custom',
         });
+
+        // Trigger health score recalculation
+        const { nodes, edges, deploymentModel, scenario } = get();
+        const { autoCalculate, calculate } = useHealthScoreStore.getState();
+        if (autoCalculate) {
+          calculate({ nodes, edges, deploymentModel, scenario });
+        }
       },
 
       // Handle new connections between nodes
@@ -425,41 +453,28 @@ export const useFlowStore = create<FlowStore>()(
       },
       closeDetectionPanel: () => set({ isDetectionPanelOpen: false }),
 
-      // Reset to the original scenario (force React Flow re-mount with resetKey)
+      // Reset to a blank canvas (force React Flow re-mount with resetKey)
       resetToOriginal: () => {
         const state = get();
-        const scenario = scenarios[state.originalScenario];
-        if (!scenario) return;
-
-        // Deep clone nodes and edges to ensure React Flow detects the change
-        // IMPORTANT: Explicitly preserve parent-child properties (using parentId for React Flow v12)
-        const clonedNodes = scenario.nodes.map((node) => ({
-          ...node,
-          position: { ...node.position },
-          data: { ...node.data },
-          // Preserve style if present
-          ...(node.style && { style: { ...node.style } }),
-          // Explicitly preserve parent-child relationship properties (React Flow v12 uses parentId)
-          ...((node.parentId || (node as unknown as { parentNode?: string }).parentNode) && {
-            parentId: node.parentId || (node as unknown as { parentNode?: string }).parentNode,
-            extent: node.extent,
-            expandParent: node.expandParent,
-          }),
-        }));
-
-        const clonedEdges = scenario.edges.map((edge) => ({
-          ...edge,
-          data: edge.data ? { ...edge.data } : undefined,
-        }));
 
         // Increment resetKey to force React Flow to re-mount completely
+        // Reset to empty canvas with 'custom' scenario
         set({
-          scenario: state.originalScenario, // Reset back to original scenario
-          nodes: clonedNodes,
-          edges: clonedEdges,
+          scenario: 'custom',
+          nodes: [],
+          edges: [],
           selectedNodeId: null,
+          isConfigPanelOpen: false,
+          isDetectionPanelOpen: false,
           resetKey: state.resetKey + 1,
         });
+
+        // Trigger health score recalculation for empty state
+        const { deploymentModel } = get();
+        const { autoCalculate, calculate } = useHealthScoreStore.getState();
+        if (autoCalculate) {
+          calculate({ nodes: [], edges: [], deploymentModel, scenario: 'custom' });
+        }
       },
     }),
     {

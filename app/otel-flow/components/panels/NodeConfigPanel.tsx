@@ -2,7 +2,8 @@
 
 import { memo, useMemo, useCallback, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Settings, Code, ChevronDown, ChevronUp, AlertTriangle, AlertCircle, Info, Plus } from 'lucide-react';
+import { X, Settings, Code, ChevronDown, ChevronUp, AlertTriangle, AlertCircle, Info, Lock, Maximize2, Minimize2, Copy, Check } from 'lucide-react';
+import { EuiIcon } from '@elastic/eui';
 import { OpenTelemetryLogo } from '../icons/OpenTelemetryLogo';
 import { useFlowStore } from '../../store/flowStore';
 import { useValidationStore } from '../../store/validationStore';
@@ -20,36 +21,79 @@ import type {
   SDKLanguage,
 } from '../../types';
 
-// Component metadata for UI display
-const RECEIVER_OPTIONS: { type: ReceiverType; icon: string; label: string; description: string }[] = [
-  { type: 'otlp', icon: '📥', label: 'OTLP', description: 'gRPC/HTTP telemetry from SDKs' },
-  { type: 'hostmetrics', icon: '💻', label: 'Host Metrics', description: 'CPU, memory, disk, network' },
-  { type: 'filelog', icon: '📄', label: 'File Log', description: 'Tail log files' },
-  { type: 'prometheus', icon: '📊', label: 'Prometheus', description: 'Scrape Prometheus endpoints' },
-  { type: 'k8s_cluster', icon: '☸️', label: 'K8s Cluster', description: 'Kubernetes cluster metrics' },
-  { type: 'kubeletstats', icon: '📦', label: 'Kubelet Stats', description: 'Pod/container metrics' },
-  { type: 'jaeger', icon: '🔷', label: 'Jaeger', description: 'Legacy Jaeger traces' },
-  { type: 'zipkin', icon: '🔶', label: 'Zipkin', description: 'Legacy Zipkin traces' },
+// EUI icon mappings for collector components
+const RECEIVER_ICON_MAP: Record<ReceiverType, string> = {
+  otlp: 'logstashInput',
+  hostmetrics: 'compute',
+  filelog: 'document',
+  prometheus: 'logoPrometheus',
+  k8s_cluster: 'logoKubernetes',
+  kubeletstats: 'kubernetesPod',
+  jaeger: 'apmTrace',
+  zipkin: 'apmTrace',
+};
+
+const PROCESSOR_ICON_MAP: Record<ProcessorType, string> = {
+  memory_limiter: 'memory',
+  batch: 'aggregate',
+  resourcedetection: 'crosshairs',
+  resource: 'tag',
+  k8sattributes: 'logoKubernetes',
+  tail_sampling: 'filter',
+  transform: 'merge',
+  filter: 'filterInCircle',
+  attributes: 'tag',
+  elasticapm: 'logoObservability',
+  spanmetrics: 'stats',
+};
+
+const EXPORTER_ICON_MAP: Record<ExporterType, string> = {
+  otlp: 'logstashOutput',
+  elasticsearch: 'logoElasticsearch',
+  debug: 'bug',
+  file: 'document',
+  logging: 'logstashOutput',
+};
+
+// Section header icons
+const SECTION_ICONS = {
+  receivers: 'logstashInput',
+  processors: 'gear',
+  exporters: 'logstashOutput',
+};
+
+// Component metadata for UI display - all options visible as chips
+const RECEIVER_OPTIONS: { type: ReceiverType; label: string; description: string }[] = [
+  { type: 'otlp', label: 'OTLP', description: 'gRPC/HTTP telemetry from SDKs' },
+  { type: 'hostmetrics', label: 'Host Metrics', description: 'CPU, memory, disk, network' },
+  { type: 'filelog', label: 'File Log', description: 'Tail log files' },
+  { type: 'prometheus', label: 'Prometheus', description: 'Scrape Prometheus endpoints' },
+  { type: 'k8s_cluster', label: 'K8s Cluster', description: 'Kubernetes cluster metrics' },
+  { type: 'kubeletstats', label: 'Kubelet Stats', description: 'Pod/container metrics' },
+  { type: 'jaeger', label: 'Jaeger', description: 'Legacy Jaeger traces' },
+  { type: 'zipkin', label: 'Zipkin', description: 'Legacy Zipkin traces' },
 ];
 
-const PROCESSOR_OPTIONS: { type: ProcessorType; icon: string; label: string; description: string; required?: boolean }[] = [
-  { type: 'memory_limiter', icon: '🛡️', label: 'Memory Limiter', description: 'Prevent OOM (should be first)', required: true },
-  { type: 'resourcedetection', icon: '🔍', label: 'Resource Detection', description: 'Auto-detect host/container info' },
-  { type: 'resource', icon: '🏷️', label: 'Resource', description: 'Add resource attributes' },
-  { type: 'k8sattributes', icon: '☸️', label: 'K8s Attributes', description: 'Enrich with Kubernetes metadata' },
-  { type: 'batch', icon: '📦', label: 'Batch', description: 'Batch for efficiency (should be last)' },
-  { type: 'tail_sampling', icon: '🎯', label: 'Tail Sampling', description: 'Smart sampling (Gateway only)' },
-  { type: 'transform', icon: '🔄', label: 'Transform', description: 'Modify attributes with OTTL' },
-  { type: 'filter', icon: '🔍', label: 'Filter', description: 'Drop unwanted telemetry' },
-  { type: 'attributes', icon: '🏷️', label: 'Attributes', description: 'Add/modify span attributes' },
+const PROCESSOR_OPTIONS: { type: ProcessorType; label: string; description: string; required?: boolean }[] = [
+  { type: 'memory_limiter', label: 'Memory Limiter', description: 'Prevent OOM (should be first)', required: true },
+  { type: 'batch', label: 'Batch', description: 'Batch for efficiency (should be last)' },
+  { type: 'resourcedetection', label: 'Resource Detection', description: 'Auto-detect host/container info' },
+  { type: 'resource', label: 'Resource', description: 'Add resource attributes' },
+  { type: 'k8sattributes', label: 'K8s Attributes', description: 'Enrich with Kubernetes metadata' },
+  { type: 'tail_sampling', label: 'Tail Sampling', description: 'Smart sampling (Gateway only)' },
+  { type: 'transform', label: 'Transform', description: 'Modify attributes with OTTL' },
+  { type: 'filter', label: 'Filter', description: 'Drop unwanted telemetry' },
+  { type: 'attributes', label: 'Attributes', description: 'Add/modify span attributes' },
+  { type: 'elasticapm', label: 'Elastic APM', description: 'Process traces for Elastic APM UI (Gateway)' },
+  { type: 'spanmetrics', label: 'Span Metrics', description: 'Generate metrics from spans' },
 ];
 
-const EXPORTER_OPTIONS: { type: ExporterType; icon: string; label: string; description: string }[] = [
-  { type: 'elasticsearch', icon: '⚡', label: 'Elasticsearch', description: 'Send to Elastic Observability' },
-  { type: 'otlp', icon: '📤', label: 'OTLP', description: 'Generic OTLP endpoint' },
-  { type: 'debug', icon: '🐛', label: 'Debug', description: 'Console output for testing' },
-  { type: 'file', icon: '💾', label: 'File', description: 'Write to file' },
-  { type: 'logging', icon: '📋', label: 'Logging', description: 'Logging exporter for debugging' },
+const EXPORTER_OPTIONS: { type: ExporterType; label: string; description: string }[] = [
+  { type: 'otlp', label: 'OTLP', description: 'Forward to Gateway or managed endpoint' },
+  { type: 'elasticsearch', label: 'Elasticsearch', description: 'Direct export to Elastic Observability' },
+  { type: 'debug', label: 'Debug', description: 'Console output for testing' },
+  { type: 'file', label: 'File', description: 'Write to file' },
+  { type: 'logging', label: 'Logging', description: 'Logging exporter for debugging' },
 ];
 
 const LANGUAGE_OPTIONS: { value: SDKLanguage; icon: string; label: string }[] = [
@@ -64,88 +108,123 @@ const LANGUAGE_OPTIONS: { value: SDKLanguage; icon: string; label: string }[] = 
   { value: 'ios', ...SDK_LANGUAGE_CONFIG.ios },
 ];
 
-// Toggle component for receivers/processors/exporters
-interface ToggleItemProps {
-  icon: string;
+// ============================================
+// Chip-Based Component Selector
+// ============================================
+
+// ComponentChip - Compact pill-shaped chip for component selection
+interface ComponentChipProps {
+  iconType: string; // EUI icon type
   label: string;
   description: string;
   enabled: boolean;
-  onChange: (enabled: boolean) => void;
   required?: boolean;
-  warning?: string;
+  onClick: () => void;
+  color: string; // Tailwind color name: 'green', 'blue', 'amber'
 }
 
-const ToggleItem = memo(({ icon, label, description, enabled, onChange, required, warning }: ToggleItemProps) => (
-  <motion.div
-    layout
-    className={`
-      flex items-center gap-3 p-2.5 rounded-lg transition-colors cursor-pointer
-      ${enabled ? 'bg-gray-800/80' : 'bg-gray-800/30 opacity-60'}
-      hover:bg-gray-800
-    `}
-    onClick={() => !required && onChange(!enabled)}
-  >
-    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gray-700/50">
-      <span className="text-base">{icon}</span>
-    </div>
-    <div className="flex-1 min-w-0">
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-medium text-white">{label}</span>
-        {required && (
-          <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400">Required</span>
-        )}
-      </div>
-      <p className="text-xs text-gray-500 truncate">{description}</p>
-      {warning && enabled && (
-        <p className="text-xs text-amber-400 mt-1">⚠️ {warning}</p>
-      )}
-    </div>
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        if (!required) onChange(!enabled);
-      }}
-      disabled={required}
+const ComponentChip = memo(({ iconType, label, description, enabled, required, onClick, color }: ComponentChipProps) => {
+  const colorClasses = {
+    green: {
+      enabled: 'bg-green-500/20 border-green-500/50 text-green-400',
+      hover: 'hover:bg-green-500/30',
+      iconColor: '#22c55e',
+    },
+    blue: {
+      enabled: 'bg-blue-500/20 border-blue-500/50 text-blue-400',
+      hover: 'hover:bg-blue-500/30',
+      iconColor: '#3b82f6',
+    },
+    amber: {
+      enabled: 'bg-amber-500/20 border-amber-500/50 text-amber-400',
+      hover: 'hover:bg-amber-500/30',
+      iconColor: '#f59e0b',
+    },
+  };
+
+  const colors = colorClasses[color as keyof typeof colorClasses] || colorClasses.blue;
+
+  return (
+    <motion.button
+      layout
+      onClick={() => !required && onClick()}
+      disabled={required && enabled}
+      title={description}
+      whileHover={{ scale: required ? 1 : 1.02 }}
+      whileTap={{ scale: required ? 1 : 0.98 }}
       className={`
-        relative w-10 h-5 rounded-full transition-colors
-        ${enabled ? 'bg-cyan-500' : 'bg-gray-600'}
-        ${required ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+        inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
+        border transition-all duration-150
+        ${enabled 
+          ? `${colors.enabled} ${!required ? colors.hover : ''}` 
+          : 'bg-gray-800/50 border-gray-700 text-gray-500 hover:bg-gray-800 hover:border-gray-600 hover:text-gray-400'
+        }
+        ${required ? 'cursor-default' : 'cursor-pointer'}
       `}
     >
-      <motion.div
-        layout
-        className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm"
-        animate={{ left: enabled ? 22 : 2 }}
-        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+      <EuiIcon 
+        type={iconType} 
+        size="s" 
+        color={enabled ? colors.iconColor : '#6b7280'} 
       />
-    </button>
-  </motion.div>
-));
+      <span>{label}</span>
+      {required && enabled && (
+        <Lock size={10} className="text-amber-400 ml-0.5" />
+      )}
+    </motion.button>
+  );
+});
 
-ToggleItem.displayName = 'ToggleItem';
+ComponentChip.displayName = 'ComponentChip';
 
-// Section component with collapsible header
-interface SectionProps {
+// ChipSection - Collapsible section with header and chip grid
+interface ChipSectionProps<T extends string> {
   title: string;
-  icon: React.ReactNode;
+  iconType: string; // EUI icon type for section header
   color: string;
-  children: React.ReactNode;
+  options: { type: T; label: string; description: string; required?: boolean }[];
+  iconMap: Record<T, string>; // Map from type to EUI icon
+  isEnabled: (type: T) => boolean;
+  onToggle: (type: T) => void;
   defaultOpen?: boolean;
 }
 
-const Section = memo(({ title, icon, color, children, defaultOpen = true }: SectionProps) => {
+function ChipSectionComponent<T extends string>({
+  title,
+  iconType,
+  color,
+  options,
+  iconMap,
+  isEnabled,
+  onToggle,
+  defaultOpen = false,
+}: ChipSectionProps<T>): React.ReactElement {
   const [isOpen, setIsOpen] = useState(defaultOpen);
+  const enabledCount = options.filter((opt) => isEnabled(opt.type)).length;
+
+  const colorPalette: Record<string, string> = {
+    green: '#22c55e',
+    blue: '#3b82f6',
+    amber: '#f59e0b',
+  };
 
   return (
     <div className="border border-gray-700/50 rounded-xl overflow-hidden">
+      {/* Section Header - Clickable to toggle */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-3 bg-gray-800/50 hover:bg-gray-800/80 transition-colors"
+        className="w-full flex items-center justify-between p-2.5 bg-gray-800/50 hover:bg-gray-800/80 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <span style={{ color }}>{icon}</span>
-          <span className="text-xs font-semibold uppercase tracking-wide" style={{ color }}>
+          <EuiIcon type={iconType} size="s" color={colorPalette[color]} />
+          <span 
+            className="text-xs font-semibold uppercase tracking-wide"
+            style={{ color: colorPalette[color] }}
+          >
             {title}
+          </span>
+          <span className="text-[10px] text-gray-500 bg-gray-800 px-1.5 py-0.5 rounded-full">
+            {enabledCount}
           </span>
         </div>
         {isOpen ? (
@@ -154,6 +233,8 @@ const Section = memo(({ title, icon, color, children, defaultOpen = true }: Sect
           <ChevronDown size={14} className="text-gray-500" />
         )}
       </button>
+
+      {/* Collapsible Chip Grid */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -163,162 +244,28 @@ const Section = memo(({ title, icon, color, children, defaultOpen = true }: Sect
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="p-2 space-y-1.5">
-              {children}
+            <div className="p-2.5 flex flex-wrap gap-2">
+              {options.map((opt) => (
+                <ComponentChip
+                  key={opt.type}
+                  iconType={iconMap[opt.type]}
+                  label={opt.label}
+                  description={opt.description}
+                  enabled={isEnabled(opt.type)}
+                  required={opt.required}
+                  onClick={() => onToggle(opt.type)}
+                  color={color}
+                />
+              ))}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
     </div>
   );
-});
-
-Section.displayName = 'Section';
-
-// Compact badge for enabled items (progressive disclosure)
-interface CompactBadgeProps {
-  icon: string;
-  label: string;
-  onRemove: () => void;
-  required?: boolean;
 }
 
-const CompactBadge = memo(({ icon, label, onRemove, required }: CompactBadgeProps) => (
-  <motion.div
-    layout
-    initial={{ opacity: 0, scale: 0.8 }}
-    animate={{ opacity: 1, scale: 1 }}
-    exit={{ opacity: 0, scale: 0.8 }}
-    className={`
-      inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs
-      ${required ? 'bg-amber-500/20 border border-amber-500/30' : 'bg-gray-700/80 border border-gray-600/50'}
-    `}
-  >
-    <span className="text-sm">{icon}</span>
-    <span className="text-white font-medium">{label}</span>
-    {!required && (
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemove();
-        }}
-        className="ml-0.5 p-0.5 hover:bg-gray-600 rounded transition-colors"
-      >
-        <X size={10} className="text-gray-400" />
-      </button>
-    )}
-    {required && (
-      <span className="text-[8px] text-amber-400">req</span>
-    )}
-  </motion.div>
-));
-
-CompactBadge.displayName = 'CompactBadge';
-
-// Progressive disclosure section
-interface ProgressiveSectionProps<T extends string> {
-  title: string;
-  icon: string;
-  color: string;
-  options: { type: T; icon: string; label: string; description: string; required?: boolean }[];
-  enabledTypes: T[];
-  onToggle: (type: T) => void;
-  isEnabled: (type: T) => boolean;
-}
-
-function ProgressiveSectionComponent<T extends string>({
-  title,
-  icon,
-  color,
-  options,
-  enabledTypes,
-  onToggle,
-  isEnabled,
-}: ProgressiveSectionProps<T>): React.ReactElement {
-  const [showAddDropdown, setShowAddDropdown] = useState(false);
-
-  const enabledOptions = options.filter((opt) => isEnabled(opt.type));
-  const disabledOptions = options.filter((opt) => !isEnabled(opt.type));
-
-  return (
-    <div className="border border-gray-700/50 rounded-xl overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between p-2.5 bg-gray-800/50">
-        <div className="flex items-center gap-2">
-          <span style={{ color }}>{icon}</span>
-          <span className="text-xs font-semibold uppercase tracking-wide" style={{ color }}>
-            {title}
-          </span>
-          <span className="text-[10px] text-gray-500">({enabledOptions.length})</span>
-        </div>
-      </div>
-
-      {/* Enabled items as compact badges */}
-      <div className="p-2">
-        <div className="flex flex-wrap gap-1.5 mb-2">
-          <AnimatePresence mode="popLayout">
-            {enabledOptions.map((opt) => (
-              <CompactBadge
-                key={opt.type}
-                icon={opt.icon}
-                label={opt.label}
-                onRemove={() => onToggle(opt.type)}
-                required={opt.required}
-              />
-            ))}
-          </AnimatePresence>
-          {enabledOptions.length === 0 && (
-            <span className="text-xs text-gray-500 italic">None enabled</span>
-          )}
-        </div>
-
-        {/* Add button with dropdown */}
-        {disabledOptions.length > 0 && (
-          <div className="relative">
-            <button
-              onClick={() => setShowAddDropdown(!showAddDropdown)}
-              className="flex items-center gap-1 px-2 py-1 text-[10px] text-gray-400 hover:text-white hover:bg-gray-700/50 rounded-lg transition-colors"
-            >
-              <Plus size={12} />
-              Add {title.slice(0, -1).toLowerCase()}
-              <ChevronDown size={10} className={`transition-transform ${showAddDropdown ? 'rotate-180' : ''}`} />
-            </button>
-
-            <AnimatePresence>
-              {showAddDropdown && (
-                <motion.div
-                  initial={{ opacity: 0, y: -5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -5 }}
-                  className="absolute left-0 top-full mt-1 w-full bg-gray-800 border border-gray-600 rounded-lg shadow-xl z-10 max-h-48 overflow-auto"
-                >
-                  {disabledOptions.map((opt) => (
-                    <button
-                      key={opt.type}
-                      onClick={() => {
-                        onToggle(opt.type);
-                        setShowAddDropdown(false);
-                      }}
-                      className="w-full flex items-center gap-2 px-2.5 py-2 hover:bg-gray-700 transition-colors text-left"
-                    >
-                      <span className="text-sm">{opt.icon}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs text-white">{opt.label}</div>
-                        <div className="text-[10px] text-gray-500 truncate">{opt.description}</div>
-                      </div>
-                    </button>
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-const ProgressiveSection = memo(ProgressiveSectionComponent) as typeof ProgressiveSectionComponent;
+const ChipSection = memo(ChipSectionComponent) as typeof ChipSectionComponent;
 
 // Validation Messages Component
 interface ValidationMessagesProps {
@@ -522,14 +469,41 @@ const CollectorConfig = memo(({ data, onUpdate }: CollectorConfigProps) => {
     onUpdate({ config: { ...data.config, receivers } });
   }, [data.config, onUpdate]);
 
+  // Correct processor order for EDOT best practices:
+  // memory_limiter (first) → resourcedetection → resource → k8sattributes → batch → elasticapm (last)
+  const PROCESSOR_ORDER: ProcessorType[] = [
+    'memory_limiter',
+    'resourcedetection',
+    'resource',
+    'k8sattributes',
+    'transform',
+    'filter',
+    'attributes',
+    'tail_sampling',
+    'spanmetrics',
+    'batch',
+    'elasticapm', // Must always be LAST for Gateway mode
+  ];
+
   const toggleProcessor = useCallback((type: ProcessorType) => {
-    const processors = data.config.processors.map((p) =>
+    let processors = data.config.processors.map((p) =>
       p.type === type ? { ...p, enabled: !p.enabled } : p
     );
     // Add if not exists
     if (!processors.find((p) => p.type === type)) {
       processors.push({ type, enabled: true });
     }
+    
+    // Sort processors according to EDOT best practices order
+    processors = processors.sort((a, b) => {
+      const aIndex = PROCESSOR_ORDER.indexOf(a.type);
+      const bIndex = PROCESSOR_ORDER.indexOf(b.type);
+      // Unknown processors go at the end (before elasticapm)
+      const aOrder = aIndex === -1 ? PROCESSOR_ORDER.length - 2 : aIndex;
+      const bOrder = bIndex === -1 ? PROCESSOR_ORDER.length - 2 : bIndex;
+      return aOrder - bOrder;
+    });
+    
     onUpdate({ config: { ...data.config, processors } });
   }, [data.config, onUpdate]);
 
@@ -597,37 +571,37 @@ const CollectorConfig = memo(({ data, onUpdate }: CollectorConfigProps) => {
         </div>
       </div>
 
-      {/* Receivers - Progressive Disclosure */}
-      <ProgressiveSection<ReceiverType>
+      {/* Receivers - Chip-based selection */}
+      <ChipSection<ReceiverType>
         title="Receivers"
-        icon="📥"
-        color="#22c55e"
+        iconType={SECTION_ICONS.receivers}
+        color="green"
         options={RECEIVER_OPTIONS}
-        enabledTypes={data.config.receivers.filter(r => r.enabled).map(r => r.type)}
-        onToggle={toggleReceiver}
+        iconMap={RECEIVER_ICON_MAP}
         isEnabled={isReceiverEnabled}
+        onToggle={toggleReceiver}
       />
 
-      {/* Processors - Progressive Disclosure */}
-      <ProgressiveSection<ProcessorType>
+      {/* Processors - Chip-based selection */}
+      <ChipSection<ProcessorType>
         title="Processors"
-        icon="⚙️"
-        color="#3b82f6"
+        iconType={SECTION_ICONS.processors}
+        color="blue"
         options={PROCESSOR_OPTIONS}
-        enabledTypes={data.config.processors.filter(p => p.enabled).map(p => p.type)}
-        onToggle={toggleProcessor}
+        iconMap={PROCESSOR_ICON_MAP}
         isEnabled={isProcessorEnabled}
+        onToggle={toggleProcessor}
       />
 
-      {/* Exporters - Progressive Disclosure */}
-      <ProgressiveSection<ExporterType>
+      {/* Exporters - Chip-based selection */}
+      <ChipSection<ExporterType>
         title="Exporters"
-        icon="📤"
-        color="#f59e0b"
+        iconType={SECTION_ICONS.exporters}
+        color="amber"
         options={EXPORTER_OPTIONS}
-        enabledTypes={data.config.exporters.filter(e => e.enabled).map(e => e.type)}
-        onToggle={toggleExporter}
+        iconMap={EXPORTER_ICON_MAP}
         isEnabled={isExporterEnabled}
+        onToggle={toggleExporter}
       />
 
       {/* Validation Section */}
@@ -762,6 +736,186 @@ const ElasticConfig = memo(({ data, onUpdate }: ElasticConfigProps) => {
 
 ElasticConfig.displayName = 'ElasticConfig';
 
+// ============================================
+// YAML Preview Section with Expandable Modal
+// ============================================
+
+interface YamlPreviewSectionProps {
+  yaml: string;
+  showPreview: boolean;
+  onTogglePreview: () => void;
+}
+
+const YamlPreviewSection = memo(({ yaml, showPreview, onTogglePreview }: YamlPreviewSectionProps) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    await navigator.clipboard.writeText(yaml);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [yaml]);
+
+  const handleDownload = useCallback(() => {
+    const blob = new Blob([yaml], { type: 'text/yaml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'otel-collector-config.yaml';
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [yaml]);
+
+  return (
+    <>
+      {/* Inline Preview */}
+      <div className="border-t border-gray-700/50 shrink-0">
+        <button
+          onClick={onTogglePreview}
+          className="w-full flex items-center justify-between p-3 hover:bg-gray-800/50 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Code size={14} className="text-cyan-400" />
+            <span className="text-xs font-medium text-gray-400">YAML Preview</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {showPreview && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsExpanded(true);
+                }}
+                className="p-1 hover:bg-gray-700 rounded transition-colors"
+                title="Expand to full view"
+              >
+                <Maximize2 size={12} className="text-gray-500 hover:text-cyan-400" />
+              </button>
+            )}
+            {showPreview ? (
+              <ChevronDown size={14} className="text-gray-500" />
+            ) : (
+              <ChevronUp size={14} className="text-gray-500" />
+            )}
+          </div>
+        </button>
+        <AnimatePresence>
+          {showPreview && !isExpanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 250, opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden relative"
+            >
+              <pre className="p-3 text-[11px] text-gray-300 font-mono overflow-auto h-[250px] bg-gray-950/50 leading-relaxed">
+                {yaml}
+              </pre>
+              {/* Action buttons overlay */}
+              <div className="absolute top-2 right-2 flex gap-1">
+                <button
+                  onClick={handleCopy}
+                  className="p-1.5 bg-gray-800/90 hover:bg-gray-700 rounded border border-gray-700 transition-colors"
+                  title="Copy to clipboard"
+                >
+                  {copied ? (
+                    <Check size={12} className="text-green-400" />
+                  ) : (
+                    <Copy size={12} className="text-gray-400" />
+                  )}
+                </button>
+                <button
+                  onClick={() => setIsExpanded(true)}
+                  className="p-1.5 bg-gray-800/90 hover:bg-gray-700 rounded border border-gray-700 transition-colors"
+                  title="Expand"
+                >
+                  <Maximize2 size={12} className="text-gray-400" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Expanded Modal View */}
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            onClick={() => setIsExpanded(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="w-full max-w-4xl h-[80vh] bg-gray-900 rounded-2xl border border-gray-700 shadow-2xl flex flex-col overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-4 border-b border-gray-700/50 shrink-0">
+                <div className="flex items-center gap-3">
+                  <Code size={20} className="text-cyan-400" />
+                  <div>
+                    <h3 className="font-semibold text-white">EDOT Collector Configuration</h3>
+                    <p className="text-xs text-gray-500">Generated YAML configuration</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleCopy}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-700 transition-colors text-sm"
+                  >
+                    {copied ? (
+                      <>
+                        <Check size={14} className="text-green-400" />
+                        <span className="text-green-400">Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={14} className="text-gray-400" />
+                        <span className="text-gray-400">Copy</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={handleDownload}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 rounded-lg border border-cyan-500/30 transition-colors text-sm text-cyan-400"
+                  >
+                    Download
+                  </button>
+                  <button
+                    onClick={() => setIsExpanded(false)}
+                    className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+                  >
+                    <Minimize2 size={18} className="text-gray-400" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Content */}
+              <div className="flex-1 overflow-auto bg-gray-950/50">
+                <pre className="p-6 text-sm text-gray-300 font-mono leading-relaxed whitespace-pre">
+                  {yaml}
+                </pre>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-3 border-t border-gray-700/50 bg-gray-800/30 shrink-0">
+                <p className="text-xs text-gray-500 text-center">
+                  Press <kbd className="px-1.5 py-0.5 bg-gray-700 rounded text-gray-400">Esc</kbd> or click outside to close
+                </p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+});
+
+YamlPreviewSection.displayName = 'YamlPreviewSection';
+
 // Main NodeConfigPanel
 export const NodeConfigPanel = memo(() => {
   const { nodes, selectedNodeId, updateNodeData, isConfigPanelOpen, deploymentModel } = useFlowStore();
@@ -818,8 +972,8 @@ export const NodeConfigPanel = memo(() => {
     ) {
       return '';
     }
-    return generateCollectorYAML(selectedNode.data as CollectorNodeData);
-  }, [selectedNode]);
+    return generateCollectorYAML(selectedNode.data as CollectorNodeData, { deploymentModel });
+  }, [selectedNode, deploymentModel]);
 
   // Update handler
   const handleUpdate = useCallback(
@@ -946,36 +1100,11 @@ export const NodeConfigPanel = memo(() => {
 
         {/* YAML Preview (for collectors only) */}
         {isCollector && (
-          <div className="border-t border-gray-700/50 shrink-0">
-            <button
-              onClick={() => setShowYamlPreview(!showYamlPreview)}
-              className="w-full flex items-center justify-between p-3 hover:bg-gray-800/50 transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <Code size={14} className="text-cyan-400" />
-                <span className="text-xs font-medium text-gray-400">YAML Preview</span>
-              </div>
-              {showYamlPreview ? (
-                <ChevronDown size={14} className="text-gray-500" />
-              ) : (
-                <ChevronUp size={14} className="text-gray-500" />
-              )}
-            </button>
-            <AnimatePresence>
-              {showYamlPreview && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 200, opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  className="overflow-hidden"
-                >
-                  <pre className="p-3 text-[10px] text-gray-400 font-mono overflow-auto h-[200px] bg-gray-950/50">
-                    {yamlPreview}
-                  </pre>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+          <YamlPreviewSection 
+            yaml={yamlPreview} 
+            showPreview={showYamlPreview}
+            onTogglePreview={() => setShowYamlPreview(!showYamlPreview)}
+          />
         )}
       </motion.div>
     </AnimatePresence>

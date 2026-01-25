@@ -4,6 +4,7 @@ import { memo, useState } from 'react';
 import { Handle, Position, type Node } from '@xyflow/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowDownToLine, Cpu, ArrowUpFromLine, Info, ExternalLink, CheckCircle2, Lightbulb } from 'lucide-react';
+import { EuiIcon } from '@elastic/eui';
 import { OpenTelemetryLogo } from '../icons/OpenTelemetryLogo';
 import type { CollectorNodeData, ReceiverConfig, ProcessorConfig, ExporterConfig } from '../../types';
 import { DEPLOYMENT_MODEL_CONFIG } from '../../types';
@@ -15,38 +16,38 @@ interface CollectorNodeProps {
   selected?: boolean;
 }
 
-// EDOT-specific component icons and descriptions
-const RECEIVER_INFO: Record<string, { icon: string; label: string; description: string }> = {
-  otlp: { icon: '📥', label: 'OTLP', description: 'gRPC/HTTP telemetry' },
-  hostmetrics: { icon: '💻', label: 'Host Metrics', description: 'CPU, memory, disk' },
-  filelog: { icon: '📄', label: 'File Log', description: 'Log file tailing' },
-  prometheus: { icon: '📊', label: 'Prometheus', description: 'Metrics scraping' },
-  k8s_cluster: { icon: '☸️', label: 'K8s Cluster', description: 'Cluster metrics' },
-  kubeletstats: { icon: '📦', label: 'Kubelet', description: 'Pod/container metrics' },
-  jaeger: { icon: '🔷', label: 'Jaeger', description: 'Legacy Jaeger' },
-  zipkin: { icon: '🔶', label: 'Zipkin', description: 'Legacy Zipkin' },
+// EDOT-specific component icons (EUI icon types) and descriptions
+const RECEIVER_INFO: Record<string, { iconType: string; label: string; description: string }> = {
+  otlp: { iconType: 'logstashInput', label: 'OTLP', description: 'gRPC/HTTP telemetry' },
+  hostmetrics: { iconType: 'compute', label: 'Host Metrics', description: 'CPU, memory, disk' },
+  filelog: { iconType: 'document', label: 'File Log', description: 'Log file tailing' },
+  prometheus: { iconType: 'logoPrometheus', label: 'Prometheus', description: 'Metrics scraping' },
+  k8s_cluster: { iconType: 'logoKubernetes', label: 'K8s Cluster', description: 'Cluster metrics' },
+  kubeletstats: { iconType: 'kubernetesPod', label: 'Kubelet', description: 'Pod/container metrics' },
+  jaeger: { iconType: 'apmTrace', label: 'Jaeger', description: 'Legacy Jaeger' },
+  zipkin: { iconType: 'apmTrace', label: 'Zipkin', description: 'Legacy Zipkin' },
 };
 
-const PROCESSOR_INFO: Record<string, { icon: string; label: string; description: string }> = {
-  memory_limiter: { icon: '🛡️', label: 'Memory Limiter', description: 'OOM protection' },
-  resourcedetection: { icon: '🔍', label: 'Resource Detection', description: 'Auto-detect host info' },
-  resource: { icon: '🏷️', label: 'Resource', description: 'Add resource attrs' },
-  k8sattributes: { icon: '☸️', label: 'K8s Attributes', description: 'K8s metadata' },
-  batch: { icon: '📦', label: 'Batch', description: 'Efficient batching' },
-  tail_sampling: { icon: '🎯', label: 'Tail Sampling', description: 'Smart sampling' },
-  transform: { icon: '🔄', label: 'Transform', description: 'Modify attributes' },
-  filter: { icon: '🔍', label: 'Filter', description: 'Drop unwanted data' },
-  attributes: { icon: '🏷️', label: 'Attributes', description: 'Add/modify attrs' },
-  elasticapm: { icon: '⚡', label: 'Elastic Observability', description: 'APM enrichment' },
-  spanmetrics: { icon: '📊', label: 'Span Metrics', description: 'RED metrics' },
+const PROCESSOR_INFO: Record<string, { iconType: string; label: string; description: string }> = {
+  memory_limiter: { iconType: 'memory', label: 'Memory Limiter', description: 'OOM protection' },
+  resourcedetection: { iconType: 'crosshairs', label: 'Resource Detection', description: 'Auto-detect host info' },
+  resource: { iconType: 'tag', label: 'Resource', description: 'Add resource attrs' },
+  k8sattributes: { iconType: 'logoKubernetes', label: 'K8s Attributes', description: 'K8s metadata' },
+  batch: { iconType: 'aggregate', label: 'Batch', description: 'Efficient batching' },
+  tail_sampling: { iconType: 'filter', label: 'Tail Sampling', description: 'Smart sampling' },
+  transform: { iconType: 'merge', label: 'Transform', description: 'Modify attributes' },
+  filter: { iconType: 'filterInCircle', label: 'Filter', description: 'Drop unwanted data' },
+  attributes: { iconType: 'tag', label: 'Attributes', description: 'Add/modify attrs' },
+  elasticapm: { iconType: 'logoObservability', label: 'Elastic APM', description: 'Process traces for APM UI' },
+  spanmetrics: { iconType: 'stats', label: 'Span Metrics', description: 'RED metrics' },
 };
 
-const EXPORTER_INFO: Record<string, { icon: string; label: string; description: string }> = {
-  otlp: { icon: '📤', label: 'OTLP', description: 'Generic endpoint' },
-  'elasticsearch': { icon: '⚡', label: 'Elasticsearch', description: 'Elastic Observability backend' },
-  debug: { icon: '🐛', label: 'Debug', description: 'Console output' },
-  file: { icon: '💾', label: 'File', description: 'File export' },
-  logging: { icon: '📋', label: 'Logging', description: 'Logging output' },
+const EXPORTER_INFO: Record<string, { iconType: string; label: string; description: string }> = {
+  otlp: { iconType: 'logstashOutput', label: 'OTLP', description: 'Forward to Gateway' },
+  elasticsearch: { iconType: 'logoElasticsearch', label: 'Elasticsearch', description: 'Direct to Elastic' },
+  debug: { iconType: 'bug', label: 'Debug', description: 'Console output' },
+  file: { iconType: 'document', label: 'File', description: 'File export' },
+  logging: { iconType: 'logstashOutput', label: 'Logging', description: 'Logging output' },
 };
 
 export const CollectorNode = memo(({ data, selected }: CollectorNodeProps) => {
@@ -192,7 +193,7 @@ export const CollectorNode = memo(({ data, selected }: CollectorNodeProps) => {
           </div>
           <div className="flex flex-wrap gap-1">
             {enabledReceivers.map((receiver) => {
-              const info = RECEIVER_INFO[receiver.type] || { icon: '📥', label: receiver.type };
+              const info = RECEIVER_INFO[receiver.type] || { iconType: 'logstashInput', label: receiver.type };
               return (
                 <motion.div
                   key={receiver.type}
@@ -201,7 +202,7 @@ export const CollectorNode = memo(({ data, selected }: CollectorNodeProps) => {
                   className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-green-500/10 border border-green-500/20 group cursor-default"
                   title={info.description}
                 >
-                  <span className="text-[10px]">{info.icon}</span>
+                  <EuiIcon type={info.iconType} size="s" color="#22c55e" />
                   <span className="text-[9px] text-green-400 font-medium">{info.label}</span>
                 </motion.div>
               );
@@ -219,7 +220,7 @@ export const CollectorNode = memo(({ data, selected }: CollectorNodeProps) => {
           </div>
           <div className="flex flex-wrap gap-1">
             {enabledProcessors.map((processor, index) => {
-              const info = PROCESSOR_INFO[processor.type] || { icon: '⚙️', label: processor.type };
+              const info = PROCESSOR_INFO[processor.type] || { iconType: 'gear', label: processor.type };
               return (
                 <motion.div
                   key={processor.type}
@@ -229,7 +230,7 @@ export const CollectorNode = memo(({ data, selected }: CollectorNodeProps) => {
                   className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 cursor-default"
                   title={info.description}
                 >
-                  <span className="text-[10px]">{info.icon}</span>
+                  <EuiIcon type={info.iconType} size="s" color="#3b82f6" />
                   <span className="text-[9px] text-blue-400 font-medium">{info.label}</span>
                 </motion.div>
               );
@@ -238,12 +239,15 @@ export const CollectorNode = memo(({ data, selected }: CollectorNodeProps) => {
           {/* Processing order indicator */}
           <div className="mt-1.5 flex items-center gap-0.5 text-[8px] text-gray-500">
             <span>Pipeline:</span>
-            {enabledProcessors.map((p, i) => (
-              <span key={p.type} className="flex items-center">
-                {i > 0 && <span className="mx-0.5">→</span>}
-                <span className="text-gray-400">{PROCESSOR_INFO[p.type]?.icon || '⚙️'}</span>
-              </span>
-            ))}
+            {enabledProcessors.map((p, i) => {
+              const info = PROCESSOR_INFO[p.type] || { iconType: 'gear' };
+              return (
+                <span key={p.type} className="flex items-center">
+                  {i > 0 && <span className="mx-0.5">→</span>}
+                  <EuiIcon type={info.iconType} size="s" color="#9ca3af" />
+                </span>
+              );
+            })}
           </div>
         </div>
 
@@ -257,7 +261,7 @@ export const CollectorNode = memo(({ data, selected }: CollectorNodeProps) => {
           </div>
           <div className="flex flex-wrap gap-1">
             {enabledExporters.map((exporter) => {
-              const info = EXPORTER_INFO[exporter.type] || { icon: '📤', label: exporter.type };
+              const info = EXPORTER_INFO[exporter.type] || { iconType: 'logstashOutput', label: exporter.type };
               return (
                 <motion.div
                   key={exporter.type}
@@ -266,7 +270,7 @@ export const CollectorNode = memo(({ data, selected }: CollectorNodeProps) => {
                   className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 cursor-default"
                   title={info.description}
                 >
-                  <span className="text-[10px]">{info.icon}</span>
+                  <EuiIcon type={info.iconType} size="s" color="#f59e0b" />
                   <span className="text-[9px] text-amber-400 font-medium">{info.label}</span>
                 </motion.div>
               );

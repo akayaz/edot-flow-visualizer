@@ -20,10 +20,12 @@ import {
 import { useValidationStore } from '../../store/validationStore';
 import { useTelemetryStore } from '../../store/telemetryStore';
 import { useFlowStore } from '../../store/flowStore';
+import { useHealthScoreStore } from '../../store/healthScoreStore';
 import { DEPLOYMENT_MODEL_CONFIG } from '../../types';
 import type { EnhancedValidationResult, EnhancedValidationSeverity } from '../../types';
+import { HealthScorePanel } from './HealthScorePanel';
 
-type StatusTab = 'validation' | 'telemetry';
+type StatusTab = 'validation' | 'telemetry' | 'health';
 
 // Severity configuration for styling (dark theme)
 const SEVERITY_CONFIG: Record<
@@ -318,6 +320,17 @@ export const StatusPanel = memo(() => {
               />
             )}
           </button>
+          <button
+            onClick={() => setActiveTab('health')}
+            className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-colors ${
+              activeTab === 'health'
+                ? 'bg-gray-700 text-white'
+                : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/50'
+            }`}
+          >
+            <TrendingUp className="w-3 h-3 text-green-400" />
+            Health
+          </button>
         </div>
       </div>
 
@@ -366,7 +379,7 @@ export const StatusPanel = memo(() => {
                 </AnimatePresence>
               )}
             </motion.div>
-          ) : (
+          ) : activeTab === 'telemetry' ? (
             <motion.div
               key="telemetry"
               initial={{ opacity: 0, x: 10 }}
@@ -454,6 +467,16 @@ export const StatusPanel = memo(() => {
                   </motion.div>
                 )}
               </AnimatePresence>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="health"
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              transition={{ duration: 0.15 }}
+            >
+              <HealthScorePanel />
             </motion.div>
           )}
         </AnimatePresence>

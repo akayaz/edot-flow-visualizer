@@ -18,11 +18,12 @@ interface ElasticNodeProps {
 type FeatureType = 'apm' | 'logs' | 'metrics' | 'profiling';
 
 // EUI icon types for each feature
+// Using stable icons that are reliably bundled with Next.js
 const featureIconTypes: Record<FeatureType, string> = {
   apm: 'apmTrace',
-  logs: 'logsApp',
-  metrics: 'visAreaStacked',
-  profiling: 'visBarVerticalStacked',
+  logs: 'logstashOutput',
+  metrics: 'stats',
+  profiling: 'inspect',
 };
 
 const featureLabels: Record<FeatureType, string> = {

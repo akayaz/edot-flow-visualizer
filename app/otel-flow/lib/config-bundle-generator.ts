@@ -479,7 +479,7 @@ function generateBundleFiles(
   // Generate collector configs
   for (const collector of collectorNodes) {
     const fileName = toFileName(collector.data.label);
-    const yaml = generateCollectorYAML(collector.data);
+    const yaml = generateCollectorYAML(collector.data, { deploymentModel });
     files.push({
       path: `collectors/${fileName}-config.yaml`,
       content: yaml,

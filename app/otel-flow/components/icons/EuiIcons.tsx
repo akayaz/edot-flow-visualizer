@@ -94,12 +94,13 @@ export const DockerLogo = ({ size = 'm', color, className }: IconProps) => (
 /**
  * Feature type to EUI icon mapping
  * Used in ElasticNode for feature badges
+ * Using stable icons that are reliably bundled with Next.js
  */
 export const FEATURE_ICON_MAP: Record<string, string> = {
-  apm: 'logoAPM',
-  logs: 'logoLogging',
-  metrics: 'logoMetrics',
-  profiling: 'visBarVerticalStacked', // Closest available for profiling
+  apm: 'apmTrace',
+  logs: 'logstashOutput',
+  metrics: 'stats',
+  profiling: 'inspect',
 };
 
 /**

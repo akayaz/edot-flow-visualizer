@@ -2,31 +2,40 @@ import type { Node, Edge } from '@xyflow/react';
 import type { Scenario, ScenarioId, EDOTNodeData, FlowEdgeData, SDKNodeData, CollectorNodeData, ElasticNodeData } from '../types';
 
 // Default collector configurations
+// Both OTLP and Elasticsearch exporters are available in all configs
+// Agent: OTLP enabled by default (forwards to Gateway)
+// Gateway: Elasticsearch enabled by default (sends to Elastic)
 const agentCollectorConfig = {
   receivers: [
     { type: 'otlp' as const, enabled: true },
     { type: 'hostmetrics' as const, enabled: true },
+    { type: 'filelog' as const, enabled: true },
   ],
   processors: [
     { type: 'memory_limiter' as const, enabled: true },
+    { type: 'resourcedetection' as const, enabled: true },
     { type: 'batch' as const, enabled: true },
   ],
   exporters: [
-    { type: 'elasticsearch' as const, enabled: true },
+    { type: 'otlp' as const, enabled: true },
+    { type: 'elasticsearch' as const, enabled: false },
   ],
 };
 
+// Gateway config for direct Elasticsearch ingestion
+// Per EDOT best practices: elasticapm processor should be LAST
 const gatewayCollectorConfig = {
   receivers: [
     { type: 'otlp' as const, enabled: true },
   ],
   processors: [
     { type: 'memory_limiter' as const, enabled: true },
+    { type: 'resourcedetection' as const, enabled: true },
     { type: 'batch' as const, enabled: true },
-    { type: 'tail_sampling' as const, enabled: true },
-    { type: 'transform' as const, enabled: true },
+    { type: 'elasticapm' as const, enabled: true }, // Must be LAST - required for Elastic APM UIs
   ],
   exporters: [
+    { type: 'otlp' as const, enabled: false },
     { type: 'elasticsearch' as const, enabled: true },
   ],
 };
@@ -36,6 +45,7 @@ const k8sAgentCollectorConfig = {
   receivers: [
     { type: 'otlp' as const, enabled: true },
     { type: 'hostmetrics' as const, enabled: true },
+    { type: 'filelog' as const, enabled: true },
     { type: 'kubeletstats' as const, enabled: true },
   ],
   processors: [
@@ -44,11 +54,13 @@ const k8sAgentCollectorConfig = {
     { type: 'batch' as const, enabled: true },
   ],
   exporters: [
-    { type: 'elasticsearch' as const, enabled: true },
+    { type: 'otlp' as const, enabled: true },
+    { type: 'elasticsearch' as const, enabled: false },
   ],
 };
 
-// K8s-specific gateway configuration
+// K8s-specific gateway configuration for direct Elasticsearch ingestion
+// Per EDOT best practices: elasticapm processor should be LAST
 const k8sGatewayCollectorConfig = {
   receivers: [
     { type: 'otlp' as const, enabled: true },
@@ -56,11 +68,13 @@ const k8sGatewayCollectorConfig = {
   ],
   processors: [
     { type: 'memory_limiter' as const, enabled: true },
+    { type: 'resourcedetection' as const, enabled: true },
     { type: 'k8sattributes' as const, enabled: true },
-    { type: 'tail_sampling' as const, enabled: true },
     { type: 'batch' as const, enabled: true },
+    { type: 'elasticapm' as const, enabled: true }, // Must be LAST - required for Elastic APM UIs
   ],
   exporters: [
+    { type: 'otlp' as const, enabled: false },
     { type: 'elasticsearch' as const, enabled: true },
   ],
 };
