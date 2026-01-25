@@ -41,3 +41,9 @@ next-env.d.ts
 
 # Misc
 *.pem
+
+# Markdown files - only keep README.md and docs folder
+*.md
+!README.md
+.claude/*.md
+.github/ISSUE_TEMPLATE/*.md
