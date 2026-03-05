@@ -1,0 +1,30 @@
+{
+  "name": "EDOT Assistant - Stale Tier 1 Documents",
+  "consumer": "alerts",
+  "rule_type_id": ".es-query",
+  "schedule": {
+    "interval": "1d"
+  },
+  "params": {
+    "searchType": "esqlQuery",
+    "esqlQuery": {
+      "esql": "FROM edot-assistant-docs-elastic | WHERE freshness_score < 0.3 | STATS stale_count = COUNT(*)"
+    },
+    "threshold": [1],
+    "thresholdComparator": ">="
+  },
+  "actions": [
+    {
+      "group": "threshold met",
+      "id": "{{CONNECTOR_ID}}",
+      "params": {
+        "message": "EDOT Assistant Alert: {{context.value}} Tier 1 documents have stale content (freshness_score < 0.3). Run 'python -m ingest.run_ingestion --tier 1 --force' to refresh.",
+        "subject": "EDOT Assistant - Stale Tier 1 Documents Detected"
+      }
+    }
+  ],
+  "tags": ["edot-assistant", "freshness", "tier-1"],
+  "enabled": true,
+  "notify_when": "onThrottleInterval",
+  "throttle": "1d"
+}

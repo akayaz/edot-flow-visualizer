@@ -13,7 +13,7 @@ import {
 import { nanoid } from 'nanoid';
 import { scenarios } from '../data/scenarios';
 import { validateConnection } from '../lib/connection-validator';
-import type { ScenarioId, EDOTNodeData, FlowEdgeData, DeploymentModel, CollectorNodeData } from '../types';
+import type { ScenarioId, EDOTNodeData, FlowEdgeData, DeploymentModel, DeploymentTarget, CollectorNodeData } from '../types';
 import { useHealthScoreStore } from './healthScoreStore';
 
 interface SetDetectedTopologyOptions {
@@ -22,9 +22,16 @@ interface SetDetectedTopologyOptions {
   clearExisting?: boolean;
 }
 
+interface ClearSnapshot {
+  nodes: Node<EDOTNodeData>[];
+  edges: Edge<FlowEdgeData>[];
+  scenario: ScenarioId | 'custom';
+}
+
 interface FlowStore {
   // State
   deploymentModel: DeploymentModel;
+  deploymentTarget: DeploymentTarget | null;
   scenario: ScenarioId | 'custom';
   originalScenario: ScenarioId; // Tracks the base scenario before customization
   nodes: Node<EDOTNodeData>[];
@@ -34,10 +41,13 @@ interface FlowStore {
   isPaletteOpen: boolean;
   isConfigPanelOpen: boolean;
   isDetectionPanelOpen: boolean;
+  initialDetectionMethod: 'yaml' | 'traffic' | null; // For deep-linking from homepage
   resetKey: number; // Used to force React Flow re-mount
+  clearSnapshot: ClearSnapshot | null; // One-level undo for clear canvas
 
   // Actions - Deployment
   setDeploymentModel: (model: DeploymentModel) => void;
+  setDeploymentTarget: (target: DeploymentTarget | null) => void;
 
   // Actions - Topology
   setScenario: (scenarioId: ScenarioId) => void;
@@ -64,11 +74,13 @@ interface FlowStore {
   toggleAnimation: () => void;
   togglePalette: () => void;
   toggleConfigPanel: () => void;
-  openDetectionPanel: () => void;
+  openDetectionPanel: (method?: 'yaml' | 'traffic') => void;
   closeDetectionPanel: () => void;
+  clearInitialDetectionMethod: () => void;
 
   // Actions - Reset
   resetToOriginal: () => void;
+  undoClear: () => void;
 }
 
 export const useFlowStore = create<FlowStore>()(
@@ -76,6 +88,7 @@ export const useFlowStore = create<FlowStore>()(
     (set, get) => ({
       // Initial state - start with empty canvas and serverless deployment
       deploymentModel: 'serverless',
+      deploymentTarget: null,
       scenario: 'custom',
       originalScenario: 'simple',
       nodes: [],
@@ -85,7 +98,12 @@ export const useFlowStore = create<FlowStore>()(
       isPaletteOpen: true,
       isConfigPanelOpen: false,
       isDetectionPanelOpen: false,
+      initialDetectionMethod: null,
       resetKey: 0,
+      clearSnapshot: null,
+
+      // Set deployment target (docker or kubernetes)
+      setDeploymentTarget: (target) => set({ deploymentTarget: target }),
 
       // Set deployment model (affects validation rules)
       // For Serverless/ECH: auto-adds a Gateway if Elastic backend exists without one
@@ -443,22 +461,28 @@ export const useFlowStore = create<FlowStore>()(
           set({ isConfigPanelOpen: false });
         }
       },
-      openDetectionPanel: () => {
+      openDetectionPanel: (method?: 'yaml' | 'traffic') => {
         // When opening detection panel, close other right-side panels
-        set({ 
+        set({
           isDetectionPanelOpen: true,
           isConfigPanelOpen: false,
           selectedNodeId: null,
+          ...(method && { initialDetectionMethod: method }),
         });
       },
-      closeDetectionPanel: () => set({ isDetectionPanelOpen: false }),
+      closeDetectionPanel: () => set({ isDetectionPanelOpen: false, initialDetectionMethod: null }),
+      clearInitialDetectionMethod: () => set({ initialDetectionMethod: null }),
 
       // Reset to a blank canvas (force React Flow re-mount with resetKey)
+      // Snapshots current state so user can undo
       resetToOriginal: () => {
         const state = get();
 
-        // Increment resetKey to force React Flow to re-mount completely
-        // Reset to empty canvas with 'custom' scenario
+        // Snapshot current topology for undo (only if non-empty)
+        const snapshot: ClearSnapshot | null = state.nodes.length > 0
+          ? { nodes: state.nodes, edges: state.edges, scenario: state.scenario }
+          : null;
+
         set({
           scenario: 'custom',
           nodes: [],
@@ -467,6 +491,7 @@ export const useFlowStore = create<FlowStore>()(
           isConfigPanelOpen: false,
           isDetectionPanelOpen: false,
           resetKey: state.resetKey + 1,
+          clearSnapshot: snapshot,
         });
 
         // Trigger health score recalculation for empty state
@@ -474,6 +499,32 @@ export const useFlowStore = create<FlowStore>()(
         const { autoCalculate, calculate } = useHealthScoreStore.getState();
         if (autoCalculate) {
           calculate({ nodes: [], edges: [], deploymentModel, scenario: 'custom' });
+        }
+      },
+
+      // Undo the last clear — restores the snapshotted topology
+      undoClear: () => {
+        const { clearSnapshot } = get();
+        if (!clearSnapshot) return;
+
+        set({
+          nodes: clearSnapshot.nodes,
+          edges: clearSnapshot.edges,
+          scenario: clearSnapshot.scenario,
+          clearSnapshot: null,
+          resetKey: get().resetKey + 1,
+        });
+
+        // Trigger health score recalculation
+        const { deploymentModel } = get();
+        const { autoCalculate, calculate } = useHealthScoreStore.getState();
+        if (autoCalculate) {
+          calculate({
+            nodes: clearSnapshot.nodes,
+            edges: clearSnapshot.edges,
+            deploymentModel,
+            scenario: clearSnapshot.scenario,
+          });
         }
       },
     }),

@@ -1,0 +1,17 @@
+{
+  "description": "EDOT Assistant metadata enrichment — extract section paths and set defaults",
+  "processors": [
+    {
+      "script": {
+        "description": "Extract section_path from URL",
+        "source": "if (ctx.url != null) { def url = ctx.url; def path = url.replaceAll('https?://[^/]+', ''); path = path.replaceAll('\\\\?.*', ''); path = path.replaceAll('#.*', ''); ctx.section_path = path; }"
+      }
+    },
+    {
+      "script": {
+        "description": "Auto-detect language_sdk from URL or repo path",
+        "source": "if (ctx.language_sdk == null && ctx.url != null) { def url = ctx.url.toLowerCase(); if (url.contains('python') || url.contains('otel-python')) { ctx.language_sdk = 'python'; } else if (url.contains('java') || url.contains('otel-java')) { ctx.language_sdk = 'java'; } else if (url.contains('node') || url.contains('otel-node') || url.contains('javascript')) { ctx.language_sdk = 'nodejs'; } else if (url.contains('dotnet') || url.contains('otel-dotnet') || url.contains('.net')) { ctx.language_sdk = 'dotnet'; } else if (url.contains('android') || url.contains('otel-android')) { ctx.language_sdk = 'android'; } else if (url.contains('go') || url.contains('otel-go')) { ctx.language_sdk = 'go'; } }"
+      }
+    }
+  ]
+}

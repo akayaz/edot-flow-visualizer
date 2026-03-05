@@ -1,14 +1,33 @@
 'use client';
 
-import { memo, useMemo, useCallback, useState } from 'react';
+import { memo, useMemo, useCallback, useState, useRef, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Settings, Code, ChevronDown, ChevronUp, AlertTriangle, AlertCircle, Info, Lock, Maximize2, Minimize2, Copy, Check } from 'lucide-react';
-import { EuiIcon } from '@elastic/eui';
+import { X, Settings, Code, ChevronDown, ChevronUp, AlertTriangle, AlertCircle, Info, Lock, Loader2 } from 'lucide-react';
+import {
+  EuiIcon,
+  EuiFlyout,
+  EuiFlyoutHeader,
+  EuiFlyoutBody,
+  EuiFlyoutFooter,
+  EuiCodeBlock,
+  EuiTitle,
+  EuiButtonEmpty,
+  EuiButton,
+  EuiButtonGroup,
+  EuiFlexGroup,
+  EuiFlexItem,
+  EuiText,
+  EuiSpacer,
+  EuiCopy,
+  EuiConfirmModal,
+  EuiBadge,
+} from '@elastic/eui';
 import { OpenTelemetryLogo } from '../icons/OpenTelemetryLogo';
 import { useFlowStore } from '../../store/flowStore';
 import { useValidationStore } from '../../store/validationStore';
-import { generateCollectorYAML } from '../../lib/yaml-generator';
-import { validateCollectorConfig, type ValidationIssue, type ValidationResult } from '../../lib/config-validator';
+import { validateCollectorConfig, type ValidationResult } from '../../lib/config-validator';
+import { useYamlEditor } from '../../hooks/useYamlEditor';
 import { SDK_LANGUAGE_CONFIG, DEPLOYMENT_MODEL_CONFIG } from '../../types';
 import type {
   SDKNodeData,
@@ -19,7 +38,11 @@ import type {
   ProcessorType,
   ExporterType,
   SDKLanguage,
+  DeploymentModel,
 } from '../../types';
+
+// Monaco editor loaded dynamically (SSR-safe, ~1MB async)
+const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
 
 // EUI icon mappings for collector components
 const RECEIVER_ICON_MAP: Record<ReceiverType, string> = {
@@ -31,6 +54,7 @@ const RECEIVER_ICON_MAP: Record<ReceiverType, string> = {
   kubeletstats: 'kubernetesPod',
   jaeger: 'apmTrace',
   zipkin: 'apmTrace',
+  kafka: 'logstashInput',
 };
 
 const PROCESSOR_ICON_MAP: Record<ProcessorType, string> = {
@@ -53,6 +77,7 @@ const EXPORTER_ICON_MAP: Record<ExporterType, string> = {
   debug: 'bug',
   file: 'document',
   logging: 'logstashOutput',
+  kafka: 'logstashOutput',
 };
 
 // Section header icons
@@ -153,7 +178,7 @@ const ComponentChip = memo(({ iconType, label, description, enabled, required, o
       whileHover={{ scale: required ? 1 : 1.02 }}
       whileTap={{ scale: required ? 1 : 0.98 }}
       className={`
-        inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
+        inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-sm font-medium
         border transition-all duration-150
         ${enabled 
           ? `${colors.enabled} ${!required ? colors.hover : ''}` 
@@ -162,14 +187,14 @@ const ComponentChip = memo(({ iconType, label, description, enabled, required, o
         ${required ? 'cursor-default' : 'cursor-pointer'}
       `}
     >
-      <EuiIcon 
-        type={iconType} 
-        size="s" 
-        color={enabled ? colors.iconColor : '#6b7280'} 
+      <EuiIcon
+        type={iconType}
+        size="m"
+        color={enabled ? colors.iconColor : '#6b7280'}
       />
       <span>{label}</span>
       {required && enabled && (
-        <Lock size={10} className="text-amber-400 ml-0.5" />
+        <Lock size={12} className="text-amber-400 ml-0.5" />
       )}
     </motion.button>
   );
@@ -213,24 +238,24 @@ function ChipSectionComponent<T extends string>({
       {/* Section Header - Clickable to toggle */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-2.5 bg-gray-800/50 hover:bg-gray-800/80 transition-colors"
+        className="w-full flex items-center justify-between p-3 bg-gray-800/50 hover:bg-gray-800/80 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <EuiIcon type={iconType} size="s" color={colorPalette[color]} />
+          <EuiIcon type={iconType} size="m" color={colorPalette[color]} />
           <span 
-            className="text-xs font-semibold uppercase tracking-wide"
+            className="text-sm font-semibold uppercase tracking-wide"
             style={{ color: colorPalette[color] }}
           >
             {title}
           </span>
-          <span className="text-[10px] text-gray-500 bg-gray-800 px-1.5 py-0.5 rounded-full">
+          <span className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full">
             {enabledCount}
           </span>
         </div>
         {isOpen ? (
-          <ChevronUp size={14} className="text-gray-500" />
+          <ChevronUp size={16} className="text-gray-500" />
         ) : (
-          <ChevronDown size={14} className="text-gray-500" />
+          <ChevronDown size={16} className="text-gray-500" />
         )}
       </button>
 
@@ -370,57 +395,57 @@ const SDKConfig = memo(({ data, onUpdate }: SDKConfigProps) => {
     <div className="space-y-4">
       {/* Label */}
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">Display Label</label>
+        <label className="block text-sm text-gray-400 mb-1.5">Display Label</label>
         <input
           type="text"
           value={data.label}
           onChange={(e) => onUpdate({ label: e.target.value })}
-          className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+          className="w-full px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-base text-white focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
           placeholder="My Application"
         />
       </div>
 
       {/* Service Name */}
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">Service Name</label>
+        <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1.5">Service Name</label>
         <input
           type="text"
           value={data.serviceName}
           onChange={(e) => onUpdate({ serviceName: e.target.value })}
-          className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white font-mono focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+          className="w-full px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-base text-gray-900 dark:text-white font-mono focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
           placeholder="my-service"
         />
-        <p className="text-xs text-gray-500 mt-1">Used for OTEL_SERVICE_NAME</p>
+        <p className="text-sm text-gray-600 dark:text-gray-500 mt-1">Used for OTEL_SERVICE_NAME</p>
       </div>
 
       {/* Language */}
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">Language / Runtime</label>
+        <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1.5">Language / Runtime</label>
         <div className="grid grid-cols-5 gap-1.5">
           {LANGUAGE_OPTIONS.map((lang) => (
             <button
               key={lang.value}
               onClick={() => onUpdate({ language: lang.value })}
               className={`
-                flex flex-col items-center gap-1 p-2 rounded-lg border transition-all
+                flex flex-col items-center gap-1 p-2.5 rounded-lg border transition-all
                 ${data.language === lang.value
                   ? 'border-cyan-500 bg-cyan-500/10'
-                  : 'border-gray-700 bg-gray-800/50 hover:bg-gray-800 hover:border-gray-600'
+                  : 'border-gray-300 dark:border-gray-700 bg-gray-100/80 dark:bg-gray-800/50 hover:bg-gray-200 dark:hover:bg-gray-800 hover:border-gray-400 dark:hover:border-gray-600'
                 }
               `}
             >
-              <span className="text-lg">{lang.icon}</span>
-              <span className="text-[10px] text-gray-400">{lang.label}</span>
+              <span className="text-xl">{lang.icon}</span>
+              <span className="text-[11px] text-gray-500 dark:text-gray-400">{lang.label}</span>
             </button>
           ))}
         </div>
       </div>
 
       {/* Auto-instrumentation */}
-      <div className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg">
+      <div className="flex items-center justify-between p-3.5 bg-gray-100/80 dark:bg-gray-800/50 rounded-lg">
         <div>
-          <div className="text-sm text-white">Auto-instrumentation</div>
-          <p className="text-xs text-gray-500">Automatic span creation</p>
+          <div className="text-base text-gray-900 dark:text-white">Auto-instrumentation</div>
+          <p className="text-sm text-gray-600 dark:text-gray-500">Automatic span creation</p>
         </div>
         <button
           onClick={() => onUpdate({ autoInstrumented: !data.autoInstrumented })}
@@ -539,33 +564,33 @@ const CollectorConfig = memo(({ data, onUpdate }: CollectorConfigProps) => {
     <div className="space-y-4">
       {/* Label */}
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">Display Label</label>
+        <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1.5">Display Label</label>
         <input
           type="text"
           value={data.label}
           onChange={(e) => onUpdate({ label: e.target.value })}
-          className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+          className="w-full px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-base text-gray-900 dark:text-white focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
         />
       </div>
 
       {/* Mode indicator */}
       <div className={`
-        flex items-center gap-2 p-2.5 rounded-lg
+        flex items-center gap-2 p-3 rounded-lg
         ${isGateway ? 'bg-pink-500/10 border border-pink-500/30' : 'bg-cyan-500/10 border border-cyan-500/30'}
       `}>
         <div className="relative">
-          <OpenTelemetryLogo size={28} />
+          <OpenTelemetryLogo size={32} />
           <span 
-            className={`absolute -bottom-1 -right-1 text-[8px] bg-gray-900 rounded-full px-1 border ${isGateway ? 'border-pink-500 text-pink-400' : 'border-cyan-500 text-cyan-400'}`}
+            className={`absolute -bottom-1 -right-1 text-[10px] bg-white dark:bg-gray-900 rounded-full px-1 border ${isGateway ? 'border-pink-500 text-pink-400' : 'border-cyan-500 text-cyan-400'}`}
           >
             {isGateway ? 'GW' : 'AG'}
           </span>
         </div>
         <div>
-          <div className={`text-sm font-medium ${isGateway ? 'text-pink-400' : 'text-cyan-400'}`}>
+          <div className={`text-base font-medium ${isGateway ? 'text-pink-400' : 'text-cyan-400'}`}>
             {isGateway ? 'Gateway Mode' : 'Agent Mode'}
           </div>
-          <p className="text-xs text-gray-400">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             {isGateway ? 'Centralized processing & sampling' : 'Per-host collection & forwarding'}
           </p>
         </div>
@@ -605,10 +630,10 @@ const CollectorConfig = memo(({ data, onUpdate }: CollectorConfigProps) => {
       />
 
       {/* Validation Section */}
-      <div className="border border-gray-700/50 rounded-xl overflow-hidden">
+      <div className="border border-gray-200 dark:border-gray-700/50 rounded-xl overflow-hidden">
         <button
           onClick={() => setShowValidation(!showValidation)}
-          className="w-full flex items-center justify-between p-3 bg-gray-800/50 hover:bg-gray-800/80 transition-colors"
+          className="w-full flex items-center justify-between p-3 bg-gray-100/70 dark:bg-gray-800/50 hover:bg-gray-200 dark:hover:bg-gray-800/80 transition-colors"
         >
           <div className="flex items-center gap-2">
             {validation.errors.length > 0 ? (
@@ -618,11 +643,11 @@ const CollectorConfig = memo(({ data, onUpdate }: CollectorConfigProps) => {
             ) : (
               <span className="text-green-400 text-sm">✓</span>
             )}
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-300">
+            <span className="text-sm font-semibold uppercase tracking-wide text-gray-700 dark:text-gray-300">
               Validation
             </span>
             {(validation.errors.length > 0 || validation.warnings.length > 0) && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-700 text-gray-400">
+              <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
                 {validation.errors.length + validation.warnings.length}
               </span>
             )}
@@ -637,16 +662,16 @@ const CollectorConfig = memo(({ data, onUpdate }: CollectorConfigProps) => {
                 className={`text-[10px] px-2 py-1 rounded transition-colors ${
                   showInfo
                     ? 'bg-blue-500/20 text-blue-400'
-                    : 'bg-gray-700 text-gray-500 hover:text-gray-400'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-400'
                 }`}
               >
                 Tips
               </button>
             )}
             {showValidation ? (
-              <ChevronUp size={14} className="text-gray-500" />
+              <ChevronUp size={14} className="text-gray-600 dark:text-gray-500" />
             ) : (
-              <ChevronDown size={14} className="text-gray-500" />
+              <ChevronDown size={14} className="text-gray-600 dark:text-gray-500" />
             )}
           </div>
         </button>
@@ -685,18 +710,18 @@ const ElasticConfig = memo(({ data, onUpdate }: ElasticConfigProps) => {
     <div className="space-y-4">
       {/* Label */}
       <div>
-        <label className="block text-xs text-gray-400 mb-1.5">Display Label</label>
+        <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1.5">Display Label</label>
         <input
           type="text"
           value={data.label}
           onChange={(e) => onUpdate({ label: e.target.value })}
-          className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+          className="w-full px-3 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-base text-gray-900 dark:text-white focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
         />
       </div>
 
       {/* Features */}
       <div>
-        <label className="block text-xs text-gray-400 mb-2">Enabled Features</label>
+        <label className="block text-sm text-gray-500 dark:text-gray-400 mb-2">Enabled Features</label>
         <div className="grid grid-cols-2 gap-2">
           {features.map((feature) => {
             const isEnabled = data.features.includes(feature);
@@ -719,12 +744,12 @@ const ElasticConfig = memo(({ data, onUpdate }: ElasticConfigProps) => {
                   flex items-center gap-2 p-2.5 rounded-lg border transition-all
                   ${isEnabled
                     ? 'border-teal-500 bg-teal-500/10'
-                    : 'border-gray-700 bg-gray-800/50 opacity-50 hover:opacity-75'
+                    : 'border-gray-300 dark:border-gray-700 bg-gray-100/80 dark:bg-gray-800/50 opacity-70 hover:opacity-90'
                   }
                 `}
               >
                 <span>{icons[feature]}</span>
-                <span className="text-sm text-white capitalize">{feature}</span>
+                <span className="text-base text-gray-900 dark:text-white capitalize">{feature}</span>
               </button>
             );
           })}
@@ -737,26 +762,223 @@ const ElasticConfig = memo(({ data, onUpdate }: ElasticConfigProps) => {
 ElasticConfig.displayName = 'ElasticConfig';
 
 // ============================================
-// YAML Preview Section with Expandable Modal
+// YAML Editor — Edit Mode Body
 // ============================================
+// EuiFlyoutBody wraps content in:
+//   .euiFlyoutBody  →  .euiFlyoutBody__overflow  →  .euiFlyoutBody__overflowContent
+//
+// Only .euiFlyoutBody__overflow has a real computed height (it's a flex child).
+// .euiFlyoutBody__overflowContent is content-sized, so `height: 100%` from
+// child elements resolves to auto (= 0 for Monaco).
+//
+// Fix: we place a sentinel ref, walk up to the `.euiFlyoutBody__overflow`
+// ancestor, observe its height via ResizeObserver, and feed a concrete px
+// height to Monaco.
 
-interface YamlPreviewSectionProps {
-  yaml: string;
-  showPreview: boolean;
-  onTogglePreview: () => void;
+interface EuiEditModeFlyoutBodyProps {
+  editedYaml: string;
+  setEditedYaml: (v: string) => void;
+  validation: { isValid: boolean; errors: string[]; warnings: string[] };
+  isValidating: boolean;
+  hasValidationIssues: boolean;
+  errorCount: number;
+  warningCount: number;
+  showValidationDetails: boolean;
+  setShowValidationDetails: (v: boolean) => void;
 }
 
-const YamlPreviewSection = memo(({ yaml, showPreview, onTogglePreview }: YamlPreviewSectionProps) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [copied, setCopied] = useState(false);
+const EuiEditModeFlyoutBody = memo(({
+  editedYaml,
+  setEditedYaml,
+  validation,
+  isValidating,
+  hasValidationIssues,
+  errorCount,
+  warningCount,
+  showValidationDetails,
+  setShowValidationDetails,
+}: EuiEditModeFlyoutBodyProps) => {
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const [availableHeight, setAvailableHeight] = useState(500);
 
-  const handleCopy = useCallback(async () => {
-    await navigator.clipboard.writeText(yaml);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, [yaml]);
+  // Measure available height using the sentinel's viewport position.
+  // This is EUI-version-agnostic: we don't rely on any internal class names.
+  // The sentinel sits at the top of the flyout body content. We compute:
+  //   availableHeight = viewportHeight - sentinelTop - footerHeight
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
 
+    const FOOTER_HEIGHT_ESTIMATE = 56; // EuiFlyoutFooter approx height
+
+    const measure = (): void => {
+      if (!sentinel) return;
+      const rect = sentinel.getBoundingClientRect();
+      const available = window.innerHeight - rect.top - FOOTER_HEIGHT_ESTIMATE;
+      setAvailableHeight(Math.max(available, 200));
+    };
+
+    // Measure after a frame to ensure layout is complete
+    requestAnimationFrame(measure);
+
+    // Re-measure on window resize
+    window.addEventListener('resize', measure);
+    const observer = new ResizeObserver(measure);
+    observer.observe(sentinel);
+
+    return () => {
+      window.removeEventListener('resize', measure);
+      observer.disconnect();
+    };
+  }, []);
+
+  // Reserve space for the validation banner
+  const validationBannerHeight =
+    hasValidationIssues || isValidating
+      ? showValidationDetails ? 180 : 40
+      : 0;
+  const monacoHeight = Math.max(availableHeight - validationBannerHeight, 200);
+
+  return (
+    <EuiFlyoutBody>
+      {/* Sentinel for measuring: invisible, 0-height */}
+      <div ref={sentinelRef} style={{ height: 0, overflow: 'hidden' }} />
+
+      {/* Monaco Editor with a concrete pixel height */}
+      <MonacoEditor
+        height={`${monacoHeight}px`}
+        language="yaml"
+        theme="vs-dark"
+        value={editedYaml}
+        onChange={(value) => setEditedYaml(value ?? '')}
+        options={{
+          minimap: { enabled: false },
+          fontSize: 14,
+          scrollBeyondLastLine: false,
+          wordWrap: 'on',
+          lineNumbers: 'on',
+          renderLineHighlight: 'line',
+          automaticLayout: true,
+          tabSize: 2,
+          padding: { top: 8 },
+        }}
+      />
+
+      {/* Validation Banner (edit mode only) */}
+      {(hasValidationIssues || isValidating) && (
+        <div style={{ borderTop: '1px solid #343741', padding: '8px 12px' }}>
+          {isValidating ? (
+            <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-xs">
+              <Loader2 size={12} className="animate-spin" />
+              <span>Validating...</span>
+            </div>
+          ) : (
+            <>
+              <button
+                onClick={() => setShowValidationDetails(!showValidationDetails)}
+                className="w-full flex items-center justify-between"
+              >
+                <div className="flex items-center gap-2">
+                  {errorCount > 0 ? (
+                    <AlertCircle size={14} className="text-red-400" />
+                  ) : (
+                    <AlertTriangle size={14} className="text-amber-400" />
+                  )}
+                  <span className={`text-xs font-medium ${errorCount > 0 ? 'text-red-400' : 'text-amber-400'}`}>
+                    {errorCount > 0 && `${errorCount} error${errorCount > 1 ? 's' : ''}`}
+                    {errorCount > 0 && warningCount > 0 && ', '}
+                    {warningCount > 0 && `${warningCount} warning${warningCount > 1 ? 's' : ''}`}
+                  </span>
+                </div>
+                {showValidationDetails ? (
+                  <ChevronUp size={12} className="text-gray-600 dark:text-gray-500" />
+                ) : (
+                  <ChevronDown size={12} className="text-gray-600 dark:text-gray-500" />
+                )}
+              </button>
+              <AnimatePresence>
+                {showValidationDetails && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="mt-2 space-y-1.5 max-h-32 overflow-y-auto">
+                      {validation.errors.map((err, i) => (
+                        <div key={`err-${i}`} className="flex items-start gap-1.5 text-xs text-red-400">
+                          <AlertCircle size={11} className="shrink-0 mt-0.5" />
+                          <span>{err}</span>
+                        </div>
+                      ))}
+                      {validation.warnings.map((warn, i) => (
+                        <div key={`warn-${i}`} className="flex items-start gap-1.5 text-xs text-amber-400">
+                          <AlertTriangle size={11} className="shrink-0 mt-0.5" />
+                          <span>{warn}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Roundtrip caveat */}
+                    <div className="mt-2 flex items-start gap-1.5 text-xs text-gray-600 dark:text-gray-500">
+                      <Info size={11} className="shrink-0 mt-0.5" />
+                      <span>
+                        Comments and formatting will be lost after Apply — the YAML is regenerated from the
+                        parsed configuration. Self-telemetry sections are re-injected automatically.
+                      </span>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </>
+          )}
+        </div>
+      )}
+    </EuiFlyoutBody>
+  );
+});
+
+EuiEditModeFlyoutBody.displayName = 'EuiEditModeFlyoutBody';
+
+// ============================================
+// YAML Editor Flyout (View + Edit modes)
+// ============================================
+
+type YamlFlyoutMode = 'view' | 'edit';
+
+interface YamlEditorFlyoutProps {
+  isOpen: boolean;
+  onClose: () => void;
+  nodeId: string;
+  nodeData: CollectorNodeData;
+  deploymentModel: DeploymentModel;
+}
+
+const YamlEditorFlyout = memo(({ isOpen, onClose, nodeId, nodeData, deploymentModel }: YamlEditorFlyoutProps) => {
+  const [mode, setMode] = useState<YamlFlyoutMode>('view');
+  const [showDiscardModal, setShowDiscardModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'close' | 'switch-to-view' | null>(null);
+  const [showValidationDetails, setShowValidationDetails] = useState(false);
+
+  const {
+    editedYaml,
+    setEditedYaml,
+    isDirty,
+    validation,
+    isValidating,
+    applyChanges,
+    resetToGenerated,
+    generatedYaml,
+  } = useYamlEditor(nodeId, nodeData, deploymentModel);
+
+  const lineCount = useMemo(() => {
+    const yaml = mode === 'edit' ? editedYaml : generatedYaml;
+    return yaml.split('\n').length;
+  }, [mode, editedYaml, generatedYaml]);
+
+  // Download handler (always uses generated YAML)
   const handleDownload = useCallback(() => {
+    const yaml = mode === 'edit' ? editedYaml : generatedYaml;
     const blob = new Blob([yaml], { type: 'text/yaml' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -764,157 +986,245 @@ const YamlPreviewSection = memo(({ yaml, showPreview, onTogglePreview }: YamlPre
     a.download = 'otel-collector-config.yaml';
     a.click();
     URL.revokeObjectURL(url);
-  }, [yaml]);
+  }, [mode, editedYaml, generatedYaml]);
+
+  // Unsaved changes guard
+  const guardedClose = useCallback(() => {
+    if (mode === 'edit' && isDirty) {
+      setPendingAction('close');
+      setShowDiscardModal(true);
+    } else {
+      setMode('view');
+      onClose();
+    }
+  }, [mode, isDirty, onClose]);
+
+  const guardedSwitchToView = useCallback(() => {
+    if (isDirty) {
+      setPendingAction('switch-to-view');
+      setShowDiscardModal(true);
+    } else {
+      setMode('view');
+    }
+  }, [isDirty]);
+
+  const handleConfirmDiscard = useCallback(() => {
+    resetToGenerated();
+    setShowDiscardModal(false);
+    if (pendingAction === 'close') {
+      setMode('view');
+      onClose();
+    } else if (pendingAction === 'switch-to-view') {
+      setMode('view');
+    }
+    setPendingAction(null);
+  }, [pendingAction, resetToGenerated, onClose]);
+
+  const handleCancelDiscard = useCallback(() => {
+    setShowDiscardModal(false);
+    setPendingAction(null);
+  }, []);
+
+  // Apply changes and switch to view mode on success
+  const handleApply = useCallback(() => {
+    const success = applyChanges();
+    if (success) {
+      // After applying, the store will update nodeData → generatedYaml recalculates.
+      // We switch to view mode so user sees the regenerated (canonical) YAML.
+      setMode('view');
+    }
+  }, [applyChanges]);
+
+  // Mode toggle options
+  const modeToggleButtons = [
+    { id: 'view', label: 'View', iconType: 'eye' },
+    { id: 'edit', label: 'Edit', iconType: 'pencil' },
+  ];
+
+  if (!isOpen) return null;
+
+  const copyableYaml = mode === 'edit' ? editedYaml : generatedYaml;
+  const errorCount = validation.errors.length;
+  const warningCount = validation.warnings.length;
+  const hasValidationIssues = errorCount > 0 || warningCount > 0;
 
   return (
     <>
-      {/* Inline Preview */}
-      <div className="border-t border-gray-700/50 shrink-0">
-        <button
-          onClick={onTogglePreview}
-          className="w-full flex items-center justify-between p-3 hover:bg-gray-800/50 transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <Code size={14} className="text-cyan-400" />
-            <span className="text-xs font-medium text-gray-400">YAML Preview</span>
-          </div>
-          <div className="flex items-center gap-2">
-            {showPreview && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsExpanded(true);
+      <EuiFlyout
+        ownFocus={false}
+        onClose={guardedClose}
+        size="m"
+        aria-labelledby="yamlEditorTitle"
+        paddingSize="none"
+        side="right"
+      >
+        {/* Header */}
+        <EuiFlyoutHeader hasBorder>
+          <EuiFlexGroup alignItems="center" gutterSize="s" responsive={false}>
+            <EuiFlexItem grow={false}>
+              <EuiIcon type="document" color="primary" />
+            </EuiFlexItem>
+            <EuiFlexItem>
+              <EuiFlexGroup alignItems="center" gutterSize="s" responsive={false}>
+                <EuiFlexItem grow={false}>
+                  <EuiTitle size="xs">
+                    <h2 id="yamlEditorTitle">Collector YAML Config</h2>
+                  </EuiTitle>
+                </EuiFlexItem>
+                {mode === 'edit' && isDirty && (
+                  <EuiFlexItem grow={false}>
+                    <EuiBadge color="warning">modified</EuiBadge>
+                  </EuiFlexItem>
+                )}
+              </EuiFlexGroup>
+            </EuiFlexItem>
+            <EuiFlexItem grow={false}>
+              <EuiButtonGroup
+                legend="YAML flyout mode"
+                options={modeToggleButtons}
+                idSelected={mode}
+                onChange={(id) => {
+                  if (id === 'view' && mode === 'edit') {
+                    guardedSwitchToView();
+                  } else {
+                    setMode(id as YamlFlyoutMode);
+                  }
                 }}
-                className="p-1 hover:bg-gray-700 rounded transition-colors"
-                title="Expand to full view"
-              >
-                <Maximize2 size={12} className="text-gray-500 hover:text-cyan-400" />
-              </button>
-            )}
-            {showPreview ? (
-              <ChevronDown size={14} className="text-gray-500" />
-            ) : (
-              <ChevronUp size={14} className="text-gray-500" />
-            )}
-          </div>
-        </button>
-        <AnimatePresence>
-          {showPreview && !isExpanded && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 250, opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden relative"
+                buttonSize="compressed"
+                isFullWidth={false}
+              />
+            </EuiFlexItem>
+          </EuiFlexGroup>
+          <EuiSpacer size="xs" />
+          <EuiText size="xs" color="subdued">
+            <p>
+              {mode === 'view'
+                ? `Auto-generated from your current node configuration \u00b7 ${lineCount} lines`
+                : `Editing YAML directly \u00b7 ${lineCount} lines`}
+            </p>
+          </EuiText>
+        </EuiFlyoutHeader>
+
+        {/* Body */}
+        {mode === 'view' ? (
+          <EuiFlyoutBody>
+            <EuiCodeBlock
+              language="yaml"
+              fontSize="m"
+              paddingSize="m"
+              lineNumbers
+              isCopyable
+              overflowHeight="100%"
             >
-              <pre className="p-3 text-[11px] text-gray-300 font-mono overflow-auto h-[250px] bg-gray-950/50 leading-relaxed">
-                {yaml}
-              </pre>
-              {/* Action buttons overlay */}
-              <div className="absolute top-2 right-2 flex gap-1">
-                <button
-                  onClick={handleCopy}
-                  className="p-1.5 bg-gray-800/90 hover:bg-gray-700 rounded border border-gray-700 transition-colors"
-                  title="Copy to clipboard"
-                >
-                  {copied ? (
-                    <Check size={12} className="text-green-400" />
-                  ) : (
-                    <Copy size={12} className="text-gray-400" />
-                  )}
-                </button>
-                <button
-                  onClick={() => setIsExpanded(true)}
-                  className="p-1.5 bg-gray-800/90 hover:bg-gray-700 rounded border border-gray-700 transition-colors"
-                  title="Expand"
-                >
-                  <Maximize2 size={12} className="text-gray-400" />
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* Expanded Modal View */}
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
-            onClick={() => setIsExpanded(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="w-full max-w-4xl h-[80vh] bg-gray-900 rounded-2xl border border-gray-700 shadow-2xl flex flex-col overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Modal Header */}
-              <div className="flex items-center justify-between p-4 border-b border-gray-700/50 shrink-0">
-                <div className="flex items-center gap-3">
-                  <Code size={20} className="text-cyan-400" />
-                  <div>
-                    <h3 className="font-semibold text-white">EDOT Collector Configuration</h3>
-                    <p className="text-xs text-gray-500">Generated YAML configuration</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleCopy}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-700 transition-colors text-sm"
-                  >
-                    {copied ? (
-                      <>
-                        <Check size={14} className="text-green-400" />
-                        <span className="text-green-400">Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy size={14} className="text-gray-400" />
-                        <span className="text-gray-400">Copy</span>
-                      </>
-                    )}
-                  </button>
-                  <button
-                    onClick={handleDownload}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 rounded-lg border border-cyan-500/30 transition-colors text-sm text-cyan-400"
-                  >
-                    Download
-                  </button>
-                  <button
-                    onClick={() => setIsExpanded(false)}
-                    className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
-                  >
-                    <Minimize2 size={18} className="text-gray-400" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Modal Content */}
-              <div className="flex-1 overflow-auto bg-gray-950/50">
-                <pre className="p-6 text-sm text-gray-300 font-mono leading-relaxed whitespace-pre">
-                  {yaml}
-                </pre>
-              </div>
-
-              {/* Modal Footer */}
-              <div className="p-3 border-t border-gray-700/50 bg-gray-800/30 shrink-0">
-                <p className="text-xs text-gray-500 text-center">
-                  Press <kbd className="px-1.5 py-0.5 bg-gray-700 rounded text-gray-400">Esc</kbd> or click outside to close
-                </p>
-              </div>
-            </motion.div>
-          </motion.div>
+              {generatedYaml}
+            </EuiCodeBlock>
+          </EuiFlyoutBody>
+        ) : (
+          <EuiEditModeFlyoutBody
+            editedYaml={editedYaml}
+            setEditedYaml={setEditedYaml}
+            validation={validation}
+            isValidating={isValidating}
+            hasValidationIssues={hasValidationIssues}
+            errorCount={errorCount}
+            warningCount={warningCount}
+            showValidationDetails={showValidationDetails}
+            setShowValidationDetails={setShowValidationDetails}
+          />
         )}
-      </AnimatePresence>
+
+        {/* Footer */}
+        <EuiFlyoutFooter>
+          {mode === 'view' ? (
+            /* View mode footer: Close | Copy | Download */
+            <EuiFlexGroup justifyContent="spaceBetween" alignItems="center" responsive={false}>
+              <EuiFlexItem grow={false}>
+                <EuiButtonEmpty onClick={guardedClose} size="s">
+                  Close
+                </EuiButtonEmpty>
+              </EuiFlexItem>
+              <EuiFlexItem grow={false}>
+                <EuiFlexGroup gutterSize="s" responsive={false}>
+                  <EuiFlexItem grow={false}>
+                    <EuiCopy textToCopy={copyableYaml}>
+                      {(copy) => (
+                        <EuiButtonEmpty onClick={copy} iconType="copy" size="s">
+                          Copy
+                        </EuiButtonEmpty>
+                      )}
+                    </EuiCopy>
+                  </EuiFlexItem>
+                  <EuiFlexItem grow={false}>
+                    <EuiButtonEmpty
+                      onClick={handleDownload}
+                      iconType="download"
+                      size="s"
+                      color="primary"
+                    >
+                      Download .yaml
+                    </EuiButtonEmpty>
+                  </EuiFlexItem>
+                </EuiFlexGroup>
+              </EuiFlexItem>
+            </EuiFlexGroup>
+          ) : (
+            /* Edit mode footer: Cancel | Reset | Apply Changes */
+            <EuiFlexGroup justifyContent="spaceBetween" alignItems="center" responsive={false}>
+              <EuiFlexItem grow={false}>
+                <EuiButtonEmpty onClick={guardedClose} size="s">
+                  Cancel
+                </EuiButtonEmpty>
+              </EuiFlexItem>
+              <EuiFlexItem grow={false}>
+                <EuiFlexGroup gutterSize="s" responsive={false}>
+                  <EuiFlexItem grow={false}>
+                    <EuiButtonEmpty
+                      onClick={resetToGenerated}
+                      iconType="refresh"
+                      size="s"
+                      isDisabled={!isDirty}
+                    >
+                      Reset
+                    </EuiButtonEmpty>
+                  </EuiFlexItem>
+                  <EuiFlexItem grow={false}>
+                    <EuiButton
+                      onClick={handleApply}
+                      fill
+                      size="s"
+                      color="primary"
+                      isDisabled={!isDirty || errorCount > 0 || isValidating}
+                      iconType="check"
+                    >
+                      Apply Changes
+                    </EuiButton>
+                  </EuiFlexItem>
+                </EuiFlexGroup>
+              </EuiFlexItem>
+            </EuiFlexGroup>
+          )}
+        </EuiFlyoutFooter>
+      </EuiFlyout>
+
+      {/* Unsaved changes confirmation modal */}
+      {showDiscardModal && (
+        <EuiConfirmModal
+          title="Discard unsaved changes?"
+          onCancel={handleCancelDiscard}
+          onConfirm={handleConfirmDiscard}
+          cancelButtonText="Keep editing"
+          confirmButtonText="Discard changes"
+          buttonColor="danger"
+          defaultFocusedButton="cancel"
+        >
+          <p>You have unsaved changes to the YAML configuration. Discarding will revert to the auto-generated version.</p>
+        </EuiConfirmModal>
+      )}
     </>
   );
 });
 
-YamlPreviewSection.displayName = 'YamlPreviewSection';
+YamlEditorFlyout.displayName = 'YamlEditorFlyout';
 
 // Main NodeConfigPanel
 export const NodeConfigPanel = memo(() => {
@@ -963,17 +1273,7 @@ export const NodeConfigPanel = memo(() => {
     };
   }, [validationResults]);
 
-  // Generate YAML preview for collectors
-  const yamlPreview = useMemo(() => {
-    if (!selectedNode) return '';
-    if (
-      selectedNode.data.componentType !== 'collector-agent' &&
-      selectedNode.data.componentType !== 'collector-gateway'
-    ) {
-      return '';
-    }
-    return generateCollectorYAML(selectedNode.data as CollectorNodeData, { deploymentModel });
-  }, [selectedNode, deploymentModel]);
+  // No longer need to generate YAML here — YamlEditorFlyout handles it via useYamlEditor
 
   // Update handler
   const handleUpdate = useCallback(
@@ -1009,25 +1309,25 @@ export const NodeConfigPanel = memo(() => {
         animate={{ x: 0, opacity: 1 }}
         exit={{ x: 400, opacity: 0 }}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        className="absolute top-4 right-4 z-20 w-[320px] bg-gray-900/95 backdrop-blur-xl rounded-2xl border border-gray-700 shadow-2xl overflow-hidden flex flex-col max-h-[calc(100vh-32px)]"
+        className="absolute top-12 right-4 z-20 w-[360px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl border border-gray-200 dark:border-gray-700 shadow-2xl overflow-hidden flex flex-col max-h-[calc(100vh-32px)]"
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-700/50 shrink-0">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700/50 shrink-0">
           <div className="flex items-center gap-2">
-            <Settings size={18} className="text-cyan-400" />
-            <h3 className="font-semibold text-white">Configure Node</h3>
+            <Settings size={20} className="text-cyan-400" />
+            <h3 className="text-[18px] font-semibold text-gray-900 dark:text-white">Configure Node</h3>
           </div>
           <button
             onClick={() => useFlowStore.getState().setSelectedNode(null)}
-            className="p-1.5 hover:bg-gray-800 rounded-lg transition-colors"
+            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
           >
-            <X size={18} className="text-gray-400" />
+            <X size={20} className="text-gray-500 dark:text-gray-400" />
           </button>
         </div>
 
         {/* Topology Validation Banner (if issues) */}
         {(topologyValidation.errors.length > 0 || topologyValidation.warnings.length > 0) && (
-          <div className="border-b border-gray-700/50">
+          <div className="border-b border-gray-200 dark:border-gray-700/50">
             <button
               onClick={() => setShowTopologyValidation(!showTopologyValidation)}
               className={`w-full flex items-center justify-between p-3 transition-colors ${
@@ -1043,20 +1343,20 @@ export const NodeConfigPanel = memo(() => {
                   <AlertTriangle size={14} className="text-amber-400" />
                 )}
                 <div className="flex flex-col items-start">
-                  <span className={`text-xs font-medium ${
+                  <span className={`text-sm font-medium ${
                     topologyValidation.errors.length > 0 ? 'text-red-400' : 'text-amber-400'
                   }`}>
                     {topologyValidation.errors.length + topologyValidation.warnings.length} architecture issue{topologyValidation.errors.length + topologyValidation.warnings.length > 1 ? 's' : ''}
                   </span>
-                  <span className="text-[10px] text-gray-500">
+                  <span className="text-xs text-gray-600 dark:text-gray-500">
                     {deploymentConfig.icon} {deploymentConfig.label} deployment
                   </span>
                 </div>
               </div>
               {showTopologyValidation ? (
-                <ChevronUp size={14} className="text-gray-500" />
+                <ChevronUp size={14} className="text-gray-600 dark:text-gray-500" />
               ) : (
-                <ChevronDown size={14} className="text-gray-500" />
+                <ChevronDown size={14} className="text-gray-600 dark:text-gray-500" />
               )}
             </button>
             <AnimatePresence>
@@ -1067,7 +1367,7 @@ export const NodeConfigPanel = memo(() => {
                   exit={{ height: 0, opacity: 0 }}
                   className="overflow-hidden"
                 >
-                  <div className="p-3 bg-gray-900/50">
+                  <div className="p-3 bg-gray-50 dark:bg-gray-900/50">
                     <ValidationMessages validation={topologyValidation} showInfo={false} />
                   </div>
                 </motion.div>
@@ -1098,12 +1398,27 @@ export const NodeConfigPanel = memo(() => {
           )}
         </div>
 
-        {/* YAML Preview (for collectors only) */}
+        {/* YAML Preview button (for collectors only) */}
         {isCollector && (
-          <YamlPreviewSection 
-            yaml={yamlPreview} 
-            showPreview={showYamlPreview}
-            onTogglePreview={() => setShowYamlPreview(!showYamlPreview)}
+          <div className="border-t border-gray-200 dark:border-gray-700/50 shrink-0 p-3">
+            <button
+              onClick={() => setShowYamlPreview(true)}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 rounded-lg transition-colors"
+            >
+              <Code size={16} className="text-cyan-400" />
+              <span className="text-sm font-medium text-cyan-400">View YAML Configuration</span>
+            </button>
+          </div>
+        )}
+
+        {/* YAML Editor Flyout (View + Edit modes) */}
+        {isCollector && selectedNode && (
+          <YamlEditorFlyout
+            isOpen={showYamlPreview}
+            onClose={() => setShowYamlPreview(false)}
+            nodeId={selectedNode.id}
+            nodeData={selectedNode.data as CollectorNodeData}
+            deploymentModel={deploymentModel}
           />
         )}
       </motion.div>

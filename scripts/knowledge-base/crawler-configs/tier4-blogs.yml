@@ -1,0 +1,80 @@
+# Tier 4 — Elastic Blogs and OpenTelemetry Blog
+# Crawls blog pages from elastic.co and opentelemetry.io
+# Outputs to: edot-assistant-blogs-v1
+
+output_sink: elasticsearch
+output_index: edot-assistant-blogs-v1
+
+max_crawl_depth: 3
+max_unique_url_count: 300
+max_body_size: 5_242_880
+purge_crawl_enabled: false
+threads_per_crawl: 5
+stats_dump_interval: 15
+
+elasticsearch:
+  host: <%= ENV['ES_HOST'] %>
+  port: 443
+  api_key: <%= ENV['ES_API_KEY'] %>
+  pipeline: edot-crawler-blogs
+  pipeline_enabled: true
+
+domains:
+  - url: https://www.elastic.co
+    seed_urls:
+      - https://www.elastic.co/observability-labs/blog
+      - https://www.elastic.co/search-labs/blog
+      - https://www.elastic.co/blog/category/observability
+      - https://www.elastic.co/search-labs/integrations/jina
+
+    exclude_tags:
+      - header
+      - footer
+      - nav
+
+    crawl_rules:
+      # Allow blog paths
+      - policy: allow
+        type: begins
+        pattern: /observability-labs/blog
+      - policy: allow
+        type: begins
+        pattern: /search-labs/blog
+      - policy: allow
+        type: begins
+        pattern: /search-labs/integrations/jina
+      - policy: allow
+        type: begins
+        pattern: /blog/category/observability
+      - policy: allow
+        type: contains
+        pattern: opentelemetry
+      - policy: allow
+        type: contains
+        pattern: otel
+      - policy: allow
+        type: contains
+        pattern: edot
+      # Deny everything else on elastic.co
+      - policy: deny
+        type: regex
+        pattern: .*
+
+  - url: https://opentelemetry.io
+    seed_urls:
+      - https://opentelemetry.io/blog
+
+    exclude_tags:
+      - header
+      - footer
+      - nav
+
+    crawl_rules:
+      # Allow only /blog/ paths
+      - policy: allow
+        type: begins
+        pattern: /blog
+      # Deny everything else
+      - policy: deny
+        type: regex
+        pattern: .*

@@ -1,27 +1,39 @@
 'use client';
 
-import { memo, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, RotateCcw, FileCode, Zap, ZapOff, Sparkles, Cloud, ChevronDown } from 'lucide-react';
+import { memo, useState, useCallback } from 'react';
+import {
+  EuiHeader,
+  EuiHeaderSectionItemButton,
+  EuiHeaderLogo,
+  EuiHeaderLinks,
+  EuiHeaderLink,
+  EuiPopover,
+  EuiToolTip,
+  EuiIcon,
+  EuiText,
+  EuiContextMenuPanel,
+  EuiContextMenuItem,
+  useEuiTheme,
+} from '@elastic/eui';
 import { useFlowStore } from '../../store/flowStore';
 import { useTelemetryStore } from '../../store/telemetryStore';
-import { useBreakpoint } from '../../lib/useBreakpoint';
+import { useThemeStore } from '../../store/themeStore';
+import { useValidationStore } from '../../store/validationStore';
 import { scenarioList } from '../../data/scenarios';
 import { DEPLOYMENT_MODEL_CONFIG } from '../../types';
-import type { ScenarioId, DeploymentModel } from '../../types';
+import type { ScenarioId } from '../../types';
 import { DeploymentSelector } from './DeploymentSelector';
 
 interface ControlPanelProps {
   onToggleDemo?: () => void;
   onOpenDetection?: () => void;
+  onCopyDiagram?: () => Promise<void>;
 }
 
-export const ControlPanel = memo(({ onToggleDemo, onOpenDetection }: ControlPanelProps) => {
-  const [showDeploymentDropdown, setShowDeploymentDropdown] = useState(false);
-  const [showScenarioDropdown, setShowScenarioDropdown] = useState(false);
-
-  // Responsive breakpoints
-  const { isSmall, isLarge } = useBreakpoint();
+export const ControlPanel = memo(({ onToggleDemo, onCopyDiagram }: ControlPanelProps): React.ReactElement => {
+  const [isDeploymentOpen, setIsDeploymentOpen] = useState(false);
+  const [isScenarioOpen, setIsScenarioOpen] = useState(false);
+  const { euiTheme } = useEuiTheme();
 
   const {
     nodes,
@@ -32,262 +44,207 @@ export const ControlPanel = memo(({ onToggleDemo, onOpenDetection }: ControlPane
     toggleConfigPanel,
     resetToOriginal,
     deploymentModel,
-    setDeploymentModel,
   } = useFlowStore();
 
   const { isDemoMode, isConnected } = useTelemetryStore();
+  const { resolvedTheme, toggleTheme } = useThemeStore();
+  const validationResults = useValidationStore((s) => s.validationResults);
+
+  const hasCollector = nodes.some((n) => n.type === 'collector');
+  const hasElastic = nodes.some((n) => n.data?.componentType === 'elastic-apm');
+  const hasErrors = validationResults.some((r) => r.severity === 'error');
+  const isExportReady = hasCollector && hasElastic && !hasErrors;
 
   const currentScenario = scenarioList.find((s) => s.id === scenario);
   const currentDeployment = DEPLOYMENT_MODEL_CONFIG[deploymentModel];
 
-  // Close dropdowns when clicking outside
-  const handleScenarioSelect = (id: ScenarioId) => {
+  const handleScenarioSelect = useCallback((id: ScenarioId): void => {
     setScenario(id);
-    setShowScenarioDropdown(false);
-  };
+    setIsScenarioOpen(false);
+  }, [setScenario]);
 
-  // Hide labels on small screens to save space
-  const showLabels = !isSmall;
+  // --- Popover trigger buttons using EuiHeaderLink for uniform font/alignment ---
+
+  const deploymentButton = (
+    <EuiHeaderLink
+      onClick={() => {
+        setIsDeploymentOpen(!isDeploymentOpen);
+        setIsScenarioOpen(false);
+      }}
+      aria-label={`Deployment: ${currentDeployment.label}`}
+      iconType="cloudSunny"
+      color="text"
+    >
+      {currentDeployment.label}
+      {' '}
+      <EuiIcon type={isDeploymentOpen ? 'arrowUp' : 'arrowDown'} size="s" />
+    </EuiHeaderLink>
+  );
+
+  const scenarioButton = (
+    <EuiHeaderLink
+      onClick={() => {
+        setIsScenarioOpen(!isScenarioOpen);
+        setIsDeploymentOpen(false);
+      }}
+      aria-label={currentScenario?.description || 'Select scenario'}
+      color="text"
+    >
+      {currentScenario?.name || 'Scenario'}
+      {' '}
+      <EuiIcon type={isScenarioOpen ? 'arrowUp' : 'arrowDown'} size="s" />
+    </EuiHeaderLink>
+  );
+
+  const scenarioMenuItems = scenarioList.map((s) => (
+    <EuiContextMenuItem
+      key={s.id}
+      icon={<span style={{ fontSize: 16 }}>{s.icon}</span>}
+      onClick={() => handleScenarioSelect(s.id)}
+      style={{
+        backgroundColor: scenario === s.id ? `${euiTheme.colors.primary}15` : undefined,
+      }}
+    >
+      <EuiText size="s">
+        <strong style={{ color: scenario === s.id ? euiTheme.colors.primary : undefined }}>
+          {s.name}
+        </strong>
+      </EuiText>
+      <EuiText size="xs" color="subdued">{s.description}</EuiText>
+    </EuiContextMenuItem>
+  ));
 
   return (
-    <motion.div
-      initial={{ y: -20, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      className="absolute top-4 left-1/2 -translate-x-1/2 z-10"
-    >
-      <div className="flex items-center gap-2 p-2 bg-gray-900/95 backdrop-blur-xl rounded-2xl border border-gray-700 shadow-2xl">
-        {/* Deployment Model Selector */}
-        <div className="relative">
-          <motion.button
-            onClick={() => {
-              setShowDeploymentDropdown(!showDeploymentDropdown);
-              setShowScenarioDropdown(false);
-            }}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className={`
-              flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium
-              transition-all border
-              ${showDeploymentDropdown 
-                ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30' 
-                : 'bg-gray-800/50 text-gray-300 border-gray-700 hover:border-gray-600'
-              }
-            `}
-            title={`Select deployment: ${currentDeployment.label}`}
-          >
-            <Cloud size={16} />
-            {showLabels && <span>{currentDeployment.icon} {currentDeployment.label}</span>}
-            {!showLabels && <span>{currentDeployment.icon}</span>}
-            <ChevronDown 
-              size={14} 
-              className={`transition-transform ${showDeploymentDropdown ? 'rotate-180' : ''}`}
-            />
-          </motion.button>
+    <EuiHeader
+      position="fixed"
+      theme={resolvedTheme === 'dark' ? 'dark' : 'default'}
+      sections={[
+        // ---- LEFT SECTION: Logo + Context selectors ----
+        {
+          items: [
+            <EuiHeaderLogo
+              key="logo"
+              iconType="logoElastic"
+              href="/"
+            >
+              EDOT Flow
+            </EuiHeaderLogo>,
 
-          {/* Deployment Dropdown */}
-          <AnimatePresence>
-            {showDeploymentDropdown && (
-              <motion.div
-                initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                transition={{ duration: 0.15 }}
-                className="absolute top-full left-0 mt-2 w-80 p-3 bg-gray-900/98 backdrop-blur-xl rounded-xl border border-gray-700 shadow-2xl z-50"
-              >
-                <div className="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wide">
-                  Deployment Target
-                </div>
+            // Deployment popover
+            <EuiPopover
+              key="deployment"
+              button={deploymentButton}
+              isOpen={isDeploymentOpen}
+              closePopover={() => setIsDeploymentOpen(false)}
+              panelPaddingSize="m"
+              anchorPosition="downLeft"
+            >
+              <div style={{ width: 320 }}>
+                <EuiText size="xs" color="subdued">
+                  <p style={{ textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8, fontWeight: 600 }}>
+                    Deployment Target
+                  </p>
+                </EuiText>
                 <DeploymentSelector />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+              </div>
+            </EuiPopover>,
 
-        {/* Divider */}
-        <div className="w-px h-8 bg-gray-700" />
-
-        {/* Scenario Selector - Compact Dropdown */}
-        <div className="relative">
-          <motion.button
-            onClick={() => {
-              setShowScenarioDropdown(!showScenarioDropdown);
-              setShowDeploymentDropdown(false);
-            }}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className={`
-              flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium
-              transition-all border
-              ${showScenarioDropdown 
-                ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30' 
-                : 'bg-gray-800/50 text-gray-300 border-gray-700 hover:border-gray-600'
-              }
-            `}
-            title={currentScenario?.description || 'Select scenario'}
-          >
-            <span>{currentScenario?.icon || '📋'}</span>
-            {showLabels && <span>{currentScenario?.name || 'Scenario'}</span>}
-            <ChevronDown 
-              size={14} 
-              className={`transition-transform ${showScenarioDropdown ? 'rotate-180' : ''}`}
-            />
-          </motion.button>
-
-          {/* Scenario Dropdown */}
-          <AnimatePresence>
-            {showScenarioDropdown && (
-              <motion.div
-                initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                transition={{ duration: 0.15 }}
-                className="absolute top-full left-0 mt-2 w-72 p-2 bg-gray-900/98 backdrop-blur-xl rounded-xl border border-gray-700 shadow-2xl z-50"
-              >
-                <div className="text-xs text-gray-400 mb-2 px-2 font-medium uppercase tracking-wide">
-                  Architecture Pattern
-                </div>
-                <div className="space-y-1">
-                  {scenarioList.map((s) => (
-                    <motion.button
-                      key={s.id}
-                      onClick={() => handleScenarioSelect(s.id)}
-                      whileHover={{ x: 2 }}
-                      className={`
-                        w-full flex items-start gap-3 px-3 py-2.5 rounded-lg text-left transition-all
-                        ${scenario === s.id 
-                          ? 'bg-cyan-500/20 border border-cyan-500/30' 
-                          : 'hover:bg-gray-800'
-                        }
-                      `}
-                    >
-                      <span className="text-lg mt-0.5">{s.icon}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className={`text-sm font-medium ${scenario === s.id ? 'text-cyan-400' : 'text-white'}`}>
-                          {s.name}
-                        </div>
-                        <p className="text-[10px] text-gray-500 mt-0.5 leading-relaxed">
-                          {s.description}
-                        </p>
-                      </div>
-                    </motion.button>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* Divider - Context | View */}
-        <div className="w-px h-8 bg-gray-700" />
-
-        {/* VIEW GROUP: Demo + Animation toggles */}
-        <div className="flex items-center gap-1">
-          {/* Demo mode toggle */}
-          <motion.button
-            onClick={onToggleDemo}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className={`
-              p-2 rounded-lg transition-all relative
-              ${
-                isDemoMode
-                  ? 'bg-purple-500/20 text-purple-400'
-                  : 'text-gray-400 hover:text-purple-400 hover:bg-gray-800'
-              }
-            `}
-            title={isDemoMode ? 'Stop demo data' : 'Start demo data'}
-            disabled={!isConnected}
-          >
-            {isDemoMode ? <ZapOff size={16} /> : <Zap size={16} />}
-            {isDemoMode && (
-              <motion.span
-                className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-purple-400"
-                animate={{ scale: [1, 1.3, 1] }}
-                transition={{ duration: 1, repeat: Infinity }}
+            // Scenario popover
+            <EuiPopover
+              key="scenario"
+              button={scenarioButton}
+              isOpen={isScenarioOpen}
+              closePopover={() => setIsScenarioOpen(false)}
+              panelPaddingSize="none"
+              anchorPosition="downLeft"
+            >
+              <EuiContextMenuPanel
+                items={scenarioMenuItems}
+                style={{ width: 280 }}
+                title="Architecture Pattern"
               />
-            )}
-          </motion.button>
+            </EuiPopover>,
+          ],
+        },
 
-          {/* Animation toggle */}
-          <motion.button
-            onClick={toggleAnimation}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className={`
-              p-2 rounded-lg transition-all
-              ${
-                isAnimating
-                  ? 'bg-green-500/20 text-green-400'
-                  : 'text-gray-400 hover:text-green-400 hover:bg-gray-800'
-              }
-            `}
-            title={isAnimating ? 'Pause animations' : 'Play animations'}
-          >
-            {isAnimating ? <Pause size={16} /> : <Play size={16} />}
-          </motion.button>
-        </div>
+        // ---- RIGHT SECTION: Export + Toggles ----
+        {
+          items: [
+            <EuiHeaderLinks key="actions">
+              <EuiHeaderLink
+                iconType="exportAction"
+                onClick={toggleConfigPanel}
+                color={isExportReady ? 'success' : 'primary'}
+              >
+                Export{isExportReady ? ' ✓' : ''}
+              </EuiHeaderLink>
+            </EuiHeaderLinks>,
 
-        {/* Divider - View | Edit */}
-        <div className="w-px h-8 bg-gray-700" />
+            // Divider between labeled actions and icon toggles
+            <span
+              key="divider"
+              style={{
+                borderLeft: `1px solid ${euiTheme.border.color}`,
+                height: 24,
+                margin: '0 4px',
+                alignSelf: 'center',
+                opacity: 0.4,
+              }}
+            />,
 
-        {/* EDIT GROUP: Clear Canvas (isolated as destructive) */}
-        <motion.button
-          onClick={resetToOriginal}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className={`
-            p-2 rounded-lg transition-colors
-            ${
-              nodes.length > 0
-                ? 'bg-orange-500/10 text-orange-400 hover:bg-orange-500/20'
-                : 'text-gray-500 cursor-not-allowed'
-            }
-          `}
-          title="Clear canvas"
-          disabled={nodes.length === 0}
-        >
-          <RotateCcw size={16} />
-        </motion.button>
+            // Copy diagram to clipboard
+            <EuiToolTip key="copy-diagram" content="Copy diagram as PNG" position="bottom">
+              <EuiHeaderSectionItemButton
+                onClick={() => {
+                  void onCopyDiagram?.();
+                }}
+                aria-label="Copy diagram as PNG"
+                disabled={nodes.length === 0}
+              >
+                <EuiIcon type="copyClipboard" size="m" color={nodes.length > 0 ? 'primary' : 'subdued'} />
+              </EuiHeaderSectionItemButton>
+            </EuiToolTip>,
 
-        {/* Divider - Edit | Output */}
-        <div className="w-px h-8 bg-gray-700" />
+            // Clear canvas
+            <EuiToolTip key="clear" content="Clear canvas" position="bottom">
+              <EuiHeaderSectionItemButton
+                onClick={resetToOriginal}
+                aria-label="Clear canvas"
+                disabled={nodes.length === 0}
+              >
+                <EuiIcon type="eraser" size="m" color={nodes.length > 0 ? 'warning' : 'subdued'} />
+              </EuiHeaderSectionItemButton>
+            </EuiToolTip>,
 
-        {/* OUTPUT GROUP: Export + Detect (primary actions) */}
-        <div className="flex items-center gap-1.5">
-          {/* Export config button - Primary action with conditional label */}
-          <motion.button
-            onClick={toggleConfigPanel}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className={`
-              flex items-center gap-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 
-              hover:bg-cyan-500/20 transition-colors border border-cyan-500/20
-              ${showLabels ? 'px-3 py-1.5' : 'p-2'}
-            `}
-            title="Export Collector YAML (⌘E)"
-          >
-            <FileCode size={14} />
-            {showLabels && <span className="text-xs font-medium">Export</span>}
-          </motion.button>
+            // Demo mode
+            <EuiToolTip key="demo" content={isDemoMode ? 'Stop demo data' : 'Start demo data'} position="bottom">
+              <EuiHeaderSectionItemButton
+                onClick={onToggleDemo}
+                aria-label={isDemoMode ? 'Stop demo data' : 'Start demo data'}
+                disabled={!isConnected}
+                notification={isDemoMode}
+              >
+                <EuiIcon type={isDemoMode ? 'stopFilled' : 'bolt'} color={isDemoMode ? 'accent' : 'subdued'} size="m" />
+              </EuiHeaderSectionItemButton>
+            </EuiToolTip>,
 
-          {/* Detect topology button - Primary action with conditional label */}
-          <motion.button
-            onClick={onOpenDetection}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className={`
-              flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-purple-500/10 to-cyan-500/10 
-              text-cyan-400 hover:from-purple-500/20 hover:to-cyan-500/20 transition-all border border-cyan-500/20
-              ${showLabels ? 'px-3 py-1.5' : 'p-2'}
-            `}
-            title="Detect topology from config (⌘D)"
-          >
-            <Sparkles size={14} />
-            {showLabels && <span className="text-xs font-medium">Detect</span>}
-          </motion.button>
-        </div>
-      </div>
-    </motion.div>
+            // Animation toggle
+            <EuiToolTip key="animation" content={isAnimating ? 'Pause animations' : 'Play animations'} position="bottom">
+              <EuiHeaderSectionItemButton onClick={toggleAnimation} aria-label={isAnimating ? 'Pause' : 'Play'}>
+                <EuiIcon type={isAnimating ? 'pause' : 'playFilled'} color={isAnimating ? 'success' : 'subdued'} size="m" />
+              </EuiHeaderSectionItemButton>
+            </EuiToolTip>,
+
+            // Theme toggle
+            <EuiToolTip key="theme" content={resolvedTheme === 'dark' ? 'Light mode' : 'Dark mode'} position="bottom">
+              <EuiHeaderSectionItemButton onClick={toggleTheme} aria-label="Toggle theme">
+                <EuiIcon type={resolvedTheme === 'dark' ? 'sun' : 'moon'} color="subdued" size="m" />
+              </EuiHeaderSectionItemButton>
+            </EuiToolTip>,
+          ],
+        },
+      ]}
+    />
   );
 });
 

@@ -120,6 +120,7 @@ export type EDOTComponentType =
   | 'collector-agent'
   | 'collector-gateway'
   | 'elastic-apm'
+  | 'kafka-broker'
   | InfrastructureComponentType;
 
 export type SDKLanguage = 'nodejs' | 'python' | 'java' | 'dotnet' | 'go' | 'php' | 'ruby' | 'android' | 'ios';
@@ -138,9 +139,9 @@ export const SDK_LANGUAGE_CONFIG: Record<SDKLanguage, { icon: string; color: str
 
 // ============ Collector Configuration ============
 
-export type ReceiverType = 'otlp' | 'hostmetrics' | 'filelog' | 'prometheus' | 'jaeger' | 'zipkin' | 'k8s_cluster' | 'kubeletstats';
+export type ReceiverType = 'otlp' | 'hostmetrics' | 'filelog' | 'prometheus' | 'jaeger' | 'zipkin' | 'k8s_cluster' | 'kubeletstats' | 'kafka';
 export type ProcessorType = 'batch' | 'memory_limiter' | 'tail_sampling' | 'transform' | 'filter' | 'attributes' | 'resource' | 'resourcedetection' | 'elasticapm' | 'spanmetrics' | 'k8sattributes';
-export type ExporterType = 'otlp' | 'elasticsearch' | 'debug' | 'file' | 'logging';
+export type ExporterType = 'otlp' | 'elasticsearch' | 'debug' | 'file' | 'logging' | 'kafka';
 
 export interface ReceiverConfig {
   type: ReceiverType;
@@ -209,6 +210,41 @@ export interface ElasticNodeData extends BaseNodeData {
   endpointType?: ElasticEndpointType;
 }
 
+// ============ Kafka Node Data Types ============
+
+/**
+ * Kafka authentication methods supported by EDOT Collector
+ */
+export type KafkaAuthType = 'none' | 'sasl-plain' | 'sasl-scram256' | 'sasl-scram512' | 'tls' | 'kerberos';
+
+/**
+ * Kafka encoding types officially supported in EDOT Collector.
+ * Only otlp_proto and otlp_json are supported.
+ */
+export type KafkaEncoding = 'otlp_proto' | 'otlp_json';
+
+/**
+ * Kafka compression types for the producer
+ */
+export type KafkaCompression = 'none' | 'gzip' | 'snappy' | 'lz4' | 'zstd';
+
+export interface KafkaNodeData extends BaseNodeData {
+  componentType: 'kafka-broker';
+  clusterName: string;
+  brokers: string[];
+  topics: {
+    traces: string;    // default: 'otlp_spans'
+    metrics: string;   // default: 'otlp_metrics'
+    logs: string;      // default: 'otlp_logs'
+  };
+  encoding: KafkaEncoding;
+  auth: KafkaAuthType;
+  partitions?: number;
+  replicationFactor?: number;
+  protocolVersion?: string;
+  compression?: KafkaCompression;
+}
+
 // ============ Infrastructure Node Data Types ============
 
 export interface HostNodeData extends BaseNodeData {
@@ -263,6 +299,7 @@ export type EDOTNodeData =
   | SDKNodeData
   | CollectorNodeData
   | ElasticNodeData
+  | KafkaNodeData
   | InfrastructureNodeData;
 
 // ============ Edge Types ============
@@ -271,9 +308,20 @@ export interface FlowEdgeData extends Record<string, unknown> {
   telemetryTypes: TelemetryType[];
   animated: boolean;
   volume: number; // 1-10 scale
-  protocol?: 'otlp-grpc' | 'otlp-http';
+  protocol?: 'otlp-grpc' | 'otlp-http' | 'kafka';
   warning?: string; // Warning message for potentially problematic connections
 }
+
+// ============ Deployment Target Types ============
+
+/**
+ * Deployment target determines how EDOT components are deployed.
+ * This is separate from DeploymentModel (which is about the Elastic backend).
+ * 
+ * - docker: Deploy using Docker Compose
+ * - kubernetes: Deploy to Kubernetes cluster
+ */
+export type DeploymentTarget = 'docker' | 'kubernetes';
 
 // ============ Scenario Types ============
 

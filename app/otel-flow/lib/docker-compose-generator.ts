@@ -4,11 +4,13 @@ import type {
   SDKNodeData, 
   CollectorNodeData, 
   ElasticNodeData,
+  KafkaNodeData,
   DockerNodeData,
   FlowEdgeData,
   SDKLanguage,
   DeploymentModel
 } from '../types';
+import { EDOT_VERSIONS, EDOT_COLLECTOR_IMAGE, ELASTICSEARCH_IMAGE, KIBANA_IMAGE } from './versions';
 
 // SDK language to Docker base image mapping (for reference in build context)
 const SDK_DOCKER_IMAGES: Record<SDKLanguage, { baseImage: string; comment: string }> = {
@@ -25,9 +27,6 @@ const SDK_DOCKER_IMAGES: Record<SDKLanguage, { baseImage: string; comment: strin
 
 // Export for use in other generators
 export { SDK_DOCKER_IMAGES };
-
-// EDOT Collector image
-const EDOT_COLLECTOR_IMAGE = 'docker.elastic.co/beats/elastic-agent:9.0.0';
 
 interface DockerService {
   image?: string;
@@ -53,6 +52,17 @@ interface DockerComposeConfig {
   services: Record<string, DockerService>;
   networks?: Record<string, { driver: string }>;
   volumes?: Record<string, Record<string, unknown>>;
+}
+
+// Port allocation tracker for auto-incrementing host ports
+let nextAppPort = 8080;
+
+function resetPortAllocation(): void {
+  nextAppPort = 8080;
+}
+
+function allocateAppPort(): number {
+  return nextAppPort++;
 }
 
 /**
@@ -102,10 +112,12 @@ function toServiceName(label: string): string {
 
 /**
  * Generate SDK service configuration
+ * Now uses EDOT SDK packages and includes ports + healthcheck
  */
 function generateSDKService(
   node: Node<SDKNodeData>,
-  collectorEndpoint: string
+  collectorEndpoint: string,
+  hostPort: number
 ): DockerService {
   const serviceName = toServiceName(node.data.serviceName || node.data.label);
   
@@ -119,22 +131,31 @@ function generateSDKService(
     OTEL_LOGS_EXPORTER: 'otlp',
   };
 
-  // Add language-specific environment variables
+  // Add EDOT language-specific environment variables
   if (node.data.language === 'nodejs') {
-    environment.NODE_OPTIONS = '--require @opentelemetry/auto-instrumentations-node/register';
+    // EDOT Node.js SDK - NOT upstream @opentelemetry/auto-instrumentations-node
+    environment.NODE_OPTIONS = `--require ${EDOT_VERSIONS.nodePackage}/start`;
   } else if (node.data.language === 'python') {
     environment.PYTHONPATH = '/app';
   } else if (node.data.language === 'java') {
-    environment.JAVA_TOOL_OPTIONS = '-javaagent:/otel/opentelemetry-javaagent.jar';
+    // EDOT Java Agent - NOT upstream opentelemetry-javaagent.jar
+    environment.JAVA_TOOL_OPTIONS = '-javaagent:/otel/elastic-otel-javaagent.jar';
   }
   
   return {
-    build: { context: `./${serviceName}` },
+    build: { context: `./apps/${serviceName}`, dockerfile: 'Dockerfile' },
     container_name: serviceName,
     environment,
+    ports: [`${hostPort}:8080`],
     depends_on: ['edot-collector'],
     restart: 'unless-stopped',
     networks: ['edot-network'],
+    healthcheck: {
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:8080/health'],
+      interval: '30s',
+      timeout: '10s',
+      retries: 3,
+    },
   };
 }
 
@@ -169,6 +190,7 @@ function generateCollectorAgentService(
     volumes: [
       `./configs/${serviceName}-config.yaml:/etc/otelcol/config.yaml:ro`,
     ],
+    command: ['elastic-agent', 'otel', '--config', '/etc/otelcol/config.yaml'],
     restart: 'unless-stopped',
     networks: ['edot-network'],
     healthcheck: {
@@ -203,6 +225,7 @@ function generateCollectorGatewayService(
     volumes: [
       `./configs/${serviceName}-config.yaml:/etc/otelcol/config.yaml:ro`,
     ],
+    command: ['elastic-agent', 'otel', '--config', '/etc/otelcol/config.yaml'],
     restart: 'unless-stopped',
     networks: ['edot-network'],
     healthcheck: {
@@ -219,7 +242,7 @@ function generateCollectorGatewayService(
  */
 function generateElasticsearchService(): DockerService {
   return {
-    image: 'docker.elastic.co/elasticsearch/elasticsearch:8.17.0',
+    image: ELASTICSEARCH_IMAGE,
     container_name: 'elasticsearch',
     environment: {
       'discovery.type': 'single-node',
@@ -246,7 +269,7 @@ function generateElasticsearchService(): DockerService {
  */
 function generateKibanaService(): DockerService {
   return {
-    image: 'docker.elastic.co/kibana/kibana:8.17.0',
+    image: KIBANA_IMAGE,
     container_name: 'kibana',
     environment: {
       ELASTICSEARCH_HOSTS: 'http://elasticsearch:9200',
@@ -257,6 +280,44 @@ function generateKibanaService(): DockerService {
     depends_on: ['elasticsearch'],
     restart: 'unless-stopped',
     networks: ['edot-network'],
+  };
+}
+
+/**
+ * Generate Kafka Broker service configuration (KRaft mode, no Zookeeper)
+ */
+function generateKafkaService(
+  node: Node<KafkaNodeData>
+): DockerService {
+  const serviceName = toServiceName(node.data.clusterName || node.data.label);
+
+  return {
+    image: 'confluentinc/cp-kafka:7.6.0',
+    container_name: serviceName,
+    environment: {
+      KAFKA_NODE_ID: '1',
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT',
+      KAFKA_ADVERTISED_LISTENERS: `PLAINTEXT://${serviceName}:29092,PLAINTEXT_HOST://localhost:9092`,
+      KAFKA_PROCESS_ROLES: 'broker,controller',
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@localhost:29093',
+      KAFKA_LISTENERS: 'PLAINTEXT://0.0.0.0:29092,CONTROLLER://0.0.0.0:29093,PLAINTEXT_HOST://0.0.0.0:9092',
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT',
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER',
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: '1',
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true',
+      CLUSTER_ID: 'edot-kafka-cluster-001',
+    },
+    ports: [
+      '9092:9092',    // Host access
+    ],
+    restart: 'unless-stopped',
+    networks: ['edot-network'],
+    healthcheck: {
+      test: ['CMD-SHELL', 'kafka-topics --bootstrap-server localhost:9092 --list'],
+      interval: '30s',
+      timeout: '10s',
+      retries: 5,
+    },
   };
 }
 
@@ -288,7 +349,6 @@ function processDockerContainerNodes(
     // Add network mode
     if (containerData.networkMode) {
       service.networks = undefined;
-      // Note: network_mode would need to be added to DockerService interface
     }
 
     // Add port mappings
@@ -341,6 +401,9 @@ export function generateDockerCompose(
   edges: Edge<FlowEdgeData>[] = [],
   deploymentModel: DeploymentModel = 'serverless'
 ): string {
+  // Reset port allocation for each generation
+  resetPortAllocation();
+
   const config: DockerComposeConfig = {
     version: '3.8',
     services: {},
@@ -355,6 +418,7 @@ export function generateDockerCompose(
   const agentNodes = nodes.filter((n) => n.data.componentType === 'collector-agent') as Node<CollectorNodeData>[];
   const gatewayNodes = nodes.filter((n) => n.data.componentType === 'collector-gateway') as Node<CollectorNodeData>[];
   const elasticNodes = nodes.filter((n) => n.data.componentType === 'elastic-apm') as Node<ElasticNodeData>[];
+  const kafkaNodes = nodes.filter((n) => n.data.componentType === 'kafka-broker') as Node<KafkaNodeData>[];
 
   // Check if we should include self-managed Elasticsearch
   const includeSelfManagedES = deploymentModel === 'self-managed' && 
@@ -368,7 +432,7 @@ export function generateDockerCompose(
     sdkCollectorEndpoint = `http://${toServiceName(gatewayNodes[0].data.label)}:4318`;
   }
 
-  // Generate SDK services
+  // Generate SDK services with auto-incrementing ports
   for (const sdkNode of sdkNodes) {
     const connectedCollectors = findConnectedCollectors(sdkNode.id, nodes, edges);
     const endpoint = connectedCollectors.length > 0 
@@ -376,7 +440,8 @@ export function generateDockerCompose(
       : sdkCollectorEndpoint;
     
     const serviceName = toServiceName(sdkNode.data.serviceName || sdkNode.data.label);
-    config.services[serviceName] = generateSDKService(sdkNode, endpoint);
+    const hostPort = allocateAppPort();
+    config.services[serviceName] = generateSDKService(sdkNode, endpoint, hostPort);
     
     // Update depends_on based on actual collector
     if (connectedCollectors.length > 0) {
@@ -409,6 +474,54 @@ export function generateDockerCompose(
     // Add dependency on Elasticsearch for self-managed
     if (includeSelfManagedES) {
       config.services[serviceName].depends_on = ['elasticsearch'];
+    }
+  }
+
+  // Generate Kafka Broker services
+  for (const kafkaNode of kafkaNodes) {
+    const serviceName = toServiceName(kafkaNode.data.clusterName || kafkaNode.data.label);
+    config.services[serviceName] = generateKafkaService(kafkaNode);
+
+    // Wire depends_on for collectors that export to Kafka
+    // Find collectors with edges TO this Kafka node
+    const upstreamEdges = edges.filter((e) => e.target === kafkaNode.id);
+    for (const edge of upstreamEdges) {
+      const sourceNode = nodes.find((n) => n.id === edge.source);
+      if (sourceNode && (sourceNode.data.componentType === 'collector-agent' || sourceNode.data.componentType === 'collector-gateway')) {
+        const sourceServiceName = toServiceName(sourceNode.data.label);
+        if (config.services[sourceServiceName]) {
+          const deps = config.services[sourceServiceName].depends_on || [];
+          if (!deps.includes(serviceName)) {
+            deps.push(serviceName);
+          }
+          config.services[sourceServiceName].depends_on = deps;
+          // Add KAFKA_BROKERS env var
+          const env = config.services[sourceServiceName].environment || {};
+          env.KAFKA_BROKERS = `${serviceName}:29092`;
+          config.services[sourceServiceName].environment = env;
+        }
+      }
+    }
+
+    // Wire depends_on for collectors that receive from Kafka
+    // Find collectors with edges FROM this Kafka node
+    const downstreamEdges = edges.filter((e) => e.source === kafkaNode.id);
+    for (const edge of downstreamEdges) {
+      const targetNode = nodes.find((n) => n.id === edge.target);
+      if (targetNode && (targetNode.data.componentType === 'collector-agent' || targetNode.data.componentType === 'collector-gateway')) {
+        const targetServiceName = toServiceName(targetNode.data.label);
+        if (config.services[targetServiceName]) {
+          const deps = config.services[targetServiceName].depends_on || [];
+          if (!deps.includes(serviceName)) {
+            deps.push(serviceName);
+          }
+          config.services[targetServiceName].depends_on = deps;
+          // Add KAFKA_BROKERS env var
+          const env = config.services[targetServiceName].environment || {};
+          env.KAFKA_BROKERS = `${serviceName}:29092`;
+          config.services[targetServiceName].environment = env;
+        }
+      }
     }
   }
 
@@ -450,6 +563,7 @@ function buildDockerComposeYAML(
     '# https://github.com/elastic/opentelemetry',
     '#',
     `# Deployment Model: ${deploymentModel}`,
+    `# EDOT Collector Image: ${EDOT_COLLECTOR_IMAGE}`,
     '',
     "version: '3.8'",
     '',
@@ -470,6 +584,10 @@ function buildDockerComposeYAML(
       }
     }
     lines.push(`    container_name: ${service.container_name}`);
+
+    if (service.command && service.command.length > 0) {
+      lines.push(`    command: ${JSON.stringify(service.command)}`);
+    }
     
     if (service.environment && Object.keys(service.environment).length > 0) {
       lines.push(`    environment:`);

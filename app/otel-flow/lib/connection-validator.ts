@@ -47,6 +47,7 @@ function getComponentDisplayName(componentType: EDOTComponentType): string {
     'collector-agent': 'Collector Agent',
     'collector-gateway': 'Collector Gateway',
     'elastic-apm': 'Elastic Observability',
+    'kafka-broker': 'Kafka Broker',
     'infrastructure-host': 'Host',
     'infrastructure-docker': 'Docker Container',
     'infrastructure-k8s-namespace': 'K8s Namespace',
@@ -129,6 +130,72 @@ export function validateConnection(
     return {
       valid: false,
       reason: 'Telemetry flows from SDKs to Collectors, not the other way around',
+    };
+  }
+
+  // ===== KAFKA-SPECIFIC RULES =====
+
+  // Kafka → SDK: Invalid (backwards flow)
+  if (sourceType === 'kafka-broker' && targetType === 'edot-sdk') {
+    return {
+      valid: false,
+      reason: 'Kafka cannot send telemetry back to SDKs. Telemetry flows from SDKs through Collectors to Kafka.',
+    };
+  }
+
+  // SDK → Kafka: Invalid (SDKs don't speak Kafka protocol)
+  if (sourceType === 'edot-sdk' && targetType === 'kafka-broker') {
+    return {
+      valid: false,
+      reason: 'SDKs cannot send telemetry directly to Kafka. Route through a Collector with kafkaexporter instead.',
+    };
+  }
+
+  // Kafka → Elastic: Invalid (Elastic can't consume from Kafka directly)
+  if (sourceType === 'kafka-broker' && targetType === 'elastic-apm') {
+    return {
+      valid: false,
+      reason: 'Elastic cannot consume directly from Kafka. Use a Collector with kafkareceiver between Kafka and Elastic.',
+    };
+  }
+
+  // Collector Agent → Kafka: Valid (Agent uses kafkaexporter)
+  if (sourceType === 'collector-agent' && targetType === 'kafka-broker') {
+    return {
+      valid: true,
+      info: 'Agent will use kafkaexporter to produce telemetry to Kafka topics for buffered delivery.',
+    };
+  }
+
+  // Collector Gateway → Kafka: Valid (Gateway uses kafkaexporter)
+  if (sourceType === 'collector-gateway' && targetType === 'kafka-broker') {
+    return {
+      valid: true,
+      info: 'Gateway will use kafkaexporter to produce telemetry to Kafka topics.',
+    };
+  }
+
+  // Kafka → Collector Gateway: Valid and recommended
+  if (sourceType === 'kafka-broker' && targetType === 'collector-gateway') {
+    return {
+      valid: true,
+      info: 'Gateway will use kafkareceiver to consume telemetry from Kafka. This is the recommended HA pattern.',
+    };
+  }
+
+  // Kafka → Collector Agent: Valid
+  if (sourceType === 'kafka-broker' && targetType === 'collector-agent') {
+    return {
+      valid: true,
+      info: 'Agent will use kafkareceiver to consume telemetry from Kafka.',
+    };
+  }
+
+  // Kafka → Kafka: Valid with warning (multi-cluster mirroring)
+  if (sourceType === 'kafka-broker' && targetType === 'kafka-broker') {
+    return {
+      valid: true,
+      warning: 'Kafka-to-Kafka connections represent cross-cluster mirroring, which is unusual for telemetry pipelines.',
     };
   }
 
@@ -276,6 +343,21 @@ export function isValidConnectionType(
     (sourceType === 'collector-agent' || sourceType === 'collector-gateway') &&
     targetType === 'edot-sdk'
   ) {
+    return false;
+  }
+
+  // Kafka cannot send to SDKs (backwards flow)
+  if (sourceType === 'kafka-broker' && targetType === 'edot-sdk') {
+    return false;
+  }
+
+  // SDKs cannot send directly to Kafka (need a Collector with kafkaexporter)
+  if (sourceType === 'edot-sdk' && targetType === 'kafka-broker') {
+    return false;
+  }
+
+  // Kafka cannot send directly to Elastic (need a Collector with kafkareceiver)
+  if (sourceType === 'kafka-broker' && targetType === 'elastic-apm') {
     return false;
   }
 

@@ -1,0 +1,14 @@
+{
+  "id": "search_edot_docs",
+  "type": "esql",
+  "description": "Search Elastic's official EDOT and OpenTelemetry documentation for configuration guides, component references, and best practices. Use when the user asks about EDOT setup, collector configuration, SDK instrumentation, or Elastic-specific OTel features.",
+  "configuration": {
+    "query": "FROM edot-assistant-docs-elastic | WHERE body_semantic MATCH ?query | KEEP title, body, url, source_tier, last_crawled | SORT _score DESC | LIMIT 5"
+  },
+  "params": {
+    "query": {
+      "type": "keyword",
+      "description": "The user's search query about EDOT documentation"
+    }
+  }
+}

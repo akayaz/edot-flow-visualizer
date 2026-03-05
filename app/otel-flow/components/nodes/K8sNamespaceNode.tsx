@@ -5,6 +5,7 @@ import { Handle, Position, NodeResizer, type Node } from '@xyflow/react';
 import { motion } from 'framer-motion';
 import { EuiIcon } from '@elastic/eui';
 import type { K8sNamespaceNodeData } from '../../types';
+import { useNodeColors } from '../../hooks/useNodeColors';
 
 interface K8sNamespaceNodeProps {
   data: K8sNamespaceNodeData;
@@ -13,6 +14,7 @@ interface K8sNamespaceNodeProps {
 
 export const K8sNamespaceNode = memo(({ data, selected }: K8sNamespaceNodeProps) => {
   const borderColor = '#326ce5'; // Kubernetes blue
+  const nodeColors = useNodeColors();
 
   return (
     <motion.div
@@ -21,26 +23,26 @@ export const K8sNamespaceNode = memo(({ data, selected }: K8sNamespaceNodeProps)
       transition={{ type: 'spring', stiffness: 300, damping: 20 }}
       className={`
         infrastructure-node
-        relative px-4 py-3 rounded-xl bg-gray-900/60 backdrop-blur
+        relative px-5 py-4 rounded-xl bg-white/90 dark:bg-gray-900/60 backdrop-blur
         border-2 border-dashed
-        ${selected ? 'ring-2 ring-blue-400/50 ring-offset-2 ring-offset-gray-950' : ''}
+        ${selected ? 'ring-2 ring-blue-400/50 ring-offset-2 ring-offset-white dark:ring-offset-gray-950' : ''}
       `}
       style={{
         borderColor,
         width: '100%',
         height: '100%',
-        minWidth: 500,
-        minHeight: 350,
+        minWidth: 520,
+        minHeight: 370,
         boxShadow: selected
-          ? `0 0 20px ${borderColor}40, 0 4px 20px rgba(0,0,0,0.3)`
-          : `0 4px 20px rgba(0,0,0,0.3)`,
+          ? `0 0 20px ${borderColor}40, 0 4px 20px rgba(15,23,42,0.12)`
+          : `0 4px 16px rgba(15,23,42,0.08)`,
       }}
     >
       {/* Resize handles - visible when selected */}
       <NodeResizer
         isVisible={selected}
-        minWidth={500}
-        minHeight={350}
+        minWidth={520}
+        minHeight={370}
         color={borderColor}
         handleStyle={{
           width: 10,
@@ -55,18 +57,18 @@ export const K8sNamespaceNode = memo(({ data, selected }: K8sNamespaceNodeProps)
         }}
       />
       {/* Header */}
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2.5 mb-3">
         <div
-          className="p-2 rounded-lg flex items-center justify-center"
+          className="p-2.5 rounded-lg flex items-center justify-center"
           style={{ backgroundColor: `${borderColor}20` }}
         >
           <EuiIcon type="logoKubernetes" size="l" />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-xs text-gray-500 uppercase tracking-wide">
+          <div className="text-sm text-gray-600 dark:text-gray-500 uppercase tracking-wide">
             Kubernetes Namespace
           </div>
-          <div className="text-sm font-semibold text-white truncate">
+          <div className="text-[15px] font-semibold text-gray-900 dark:text-white truncate">
             {data.name}
           </div>
         </div>
@@ -75,12 +77,13 @@ export const K8sNamespaceNode = memo(({ data, selected }: K8sNamespaceNodeProps)
       {/* Labels */}
       {data.labels && Object.keys(data.labels).length > 0 && (
         <div className="mb-3">
-          <div className="text-xs text-gray-500 mb-1">Labels:</div>
+          <div className="text-sm text-gray-600 dark:text-gray-500 mb-1">Labels:</div>
           <div className="flex flex-wrap gap-1">
             {Object.entries(data.labels).map(([key, value]) => (
               <div
                 key={key}
-                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 text-xs font-mono"
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-500/10 text-[13px] font-mono"
+                style={{ color: nodeColors.primary }}
               >
                 {key}={value}
               </div>
@@ -91,14 +94,14 @@ export const K8sNamespaceNode = memo(({ data, selected }: K8sNamespaceNodeProps)
 
       {/* Container area hint */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none mt-24">
-        <div className="text-sm text-gray-600 text-center">
+        <div className="text-base text-gray-500 dark:text-gray-600 text-center">
           ☸️ Drop K8s resources here (DaemonSets, Deployments)
         </div>
       </div>
 
       {/* Description */}
       {data.description && (
-        <div className="absolute bottom-2 left-4 right-4 text-xs text-gray-500">
+        <div className="absolute bottom-2 left-4 right-4 text-sm text-gray-600 dark:text-gray-500">
           {data.description}
         </div>
       )}

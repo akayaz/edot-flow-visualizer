@@ -1,0 +1,48 @@
+# Tier 3 — OpenTelemetry Official Documentation
+# Crawls opentelemetry.io/docs
+# Outputs to: edot-assistant-docs-otel-v1
+
+output_sink: elasticsearch
+output_index: edot-assistant-docs-otel-v1
+
+max_crawl_depth: 5
+max_unique_url_count: 1000
+max_body_size: 5_242_880
+purge_crawl_enabled: false
+threads_per_crawl: 5
+stats_dump_interval: 15
+
+elasticsearch:
+  host: <%= ENV['ES_HOST'] %>
+  port: 443
+  api_key: <%= ENV['ES_API_KEY'] %>
+  pipeline: edot-crawler-docs-otel
+  pipeline_enabled: true
+
+domains:
+  - url: https://opentelemetry.io
+    seed_urls:
+      - https://opentelemetry.io/docs
+      - https://opentelemetry.io/docs/collector
+      - https://opentelemetry.io/docs/collector/configuration
+      - https://opentelemetry.io/docs/languages
+      - https://opentelemetry.io/docs/concepts
+      - https://opentelemetry.io/docs/specs/otel
+      - https://opentelemetry.io/docs/kubernetes
+    sitemap_urls:
+      - https://opentelemetry.io/sitemap.xml
+
+    exclude_tags:
+      - header
+      - footer
+      - nav
+
+    crawl_rules:
+      # Allow only /docs/ paths
+      - policy: allow
+        type: begins
+        pattern: /docs/
+      # Deny everything else
+      - policy: deny
+        type: regex
+        pattern: .*

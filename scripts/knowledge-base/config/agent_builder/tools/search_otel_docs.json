@@ -1,0 +1,14 @@
+{
+  "id": "search_otel_docs",
+  "type": "esql",
+  "description": "Search the OpenTelemetry project documentation, specifications, and semantic conventions. Use when the user asks about OTel concepts, signal types, collector components, or upstream features.",
+  "configuration": {
+    "query": "FROM edot-assistant-docs-otel | WHERE body_semantic MATCH ?query | KEEP title, body, url, content_type, last_crawled | SORT _score DESC | LIMIT 5"
+  },
+  "params": {
+    "query": {
+      "type": "keyword",
+      "description": "The user's search query about OpenTelemetry documentation"
+    }
+  }
+}

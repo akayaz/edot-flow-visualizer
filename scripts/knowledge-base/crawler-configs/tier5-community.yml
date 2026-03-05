@@ -1,0 +1,59 @@
+# Tier 5 — Community and Ecosystem Resources
+# Crawls awesome-opentelemetry and OTel Registry
+# Outputs to: edot-assistant-community-v1
+
+output_sink: elasticsearch
+output_index: edot-assistant-community-v1
+
+max_crawl_depth: 2
+max_unique_url_count: 200
+max_body_size: 5_242_880
+purge_crawl_enabled: false
+threads_per_crawl: 3
+stats_dump_interval: 15
+
+elasticsearch:
+  host: <%= ENV['ES_HOST'] %>
+  port: 443
+  api_key: <%= ENV['ES_API_KEY'] %>
+  pipeline: edot-crawler-community
+  pipeline_enabled: true
+
+domains:
+  - url: https://github.com
+    seed_urls:
+      - https://github.com/magsther/awesome-opentelemetry
+
+    exclude_tags:
+      - header
+      - footer
+      - nav
+
+    crawl_rules:
+      # Allow only awesome-opentelemetry repo paths
+      - policy: allow
+        type: begins
+        pattern: /magsther/awesome-opentelemetry
+      # Deny everything else on github.com
+      - policy: deny
+        type: regex
+        pattern: .*
+
+  - url: https://opentelemetry.io
+    seed_urls:
+      - https://opentelemetry.io/ecosystem/registry
+
+    exclude_tags:
+      - header
+      - footer
+      - nav
+
+    crawl_rules:
+      # Allow only /ecosystem/ paths
+      - policy: allow
+        type: begins
+        pattern: /ecosystem
+      # Deny everything else
+      - policy: deny
+        type: regex
+        pattern: .*

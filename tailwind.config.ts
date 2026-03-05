@@ -6,25 +6,11 @@ const config: Config = {
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
+  darkMode: 'class', // Kept for React Flow node dark: variants
   theme: {
     extend: {
       colors: {
-        // Elastic EUI Brand Colors (Dark Theme)
-        // @see https://eui.elastic.co/#/theming/color-mode
-        'eui': {
-          primary: '#0077CC',      // EUI primary blue
-          accent: '#00BFB3',       // Elastic teal/accent
-          success: '#7DE2B8',      // Success green (dark mode)
-          warning: '#FEC514',      // Warning yellow
-          danger: '#F66',          // Error red
-          text: '#DFE5EF',         // Primary text (dark mode)
-          subtext: '#98A2B3',      // Secondary text
-          'bg-dark': '#1D1E24',    // Dark background
-          'bg-darker': '#141519',  // Darker background
-          'bg-subdued': '#25262E', // Subdued background
-          border: '#343741',       // Border color (dark mode)
-        },
-        // EDOT Component Colors
+        // EDOT Component Colors — Canvas zone only
         'edot-sdk': {
           nodejs: '#22c55e',
           python: '#eab308',
@@ -40,7 +26,7 @@ const config: Config = {
           primary: '#00bfb3',
           secondary: '#0077cc',
         },
-        // Telemetry type colors
+        // Telemetry type colors — Canvas zone particles
         telemetry: {
           traces: '#f59e0b',
           metrics: '#3b82f6',

@@ -1,0 +1,8 @@
+elasticsearch>=9.3.0
+requests>=2.31.0
+pyyaml>=6.0.1
+schedule>=1.2.0
+python-dotenv>=1.0.0
+click>=8.1.0          # CLI interface
+rich>=13.7.0          # Pretty terminal output
+pytest>=8.0.0         # Testing

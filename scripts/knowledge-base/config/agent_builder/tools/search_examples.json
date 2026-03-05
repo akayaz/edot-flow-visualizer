@@ -1,0 +1,14 @@
+{
+  "id": "search_examples",
+  "type": "esql",
+  "description": "Search for YAML configurations, code examples, and deployment patterns from EDOT and OTel repositories. Use when the user needs concrete configuration snippets or implementation references.",
+  "configuration": {
+    "query": "FROM edot-assistant-github-repos | WHERE body_semantic MATCH ?query AND content_type IN (\"yaml_config\", \"code_example\", \"config\", \"example\", \"readme\") | KEEP title, body, url, repo, language_sdk | SORT _score DESC | LIMIT 5"
+  },
+  "params": {
+    "query": {
+      "type": "keyword",
+      "description": "The user's search query for configuration or code examples"
+    }
+  }
+}

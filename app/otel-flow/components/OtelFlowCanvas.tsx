@@ -3,9 +3,7 @@
 import { useCallback, useRef, useEffect, useState } from 'react';
 import {
   ReactFlow,
-  Background,
   MiniMap,
-  BackgroundVariant,
   ReactFlowProvider,
   useReactFlow,
   type Node,
@@ -31,6 +29,8 @@ import { QuickStartPanel } from './panels/QuickStartPanel';
 import { EmptyState } from './panels/EmptyState';
 import { ZoomControls } from './panels/ZoomControls';
 import { useTelemetryStream } from '../lib/useTelemetryStream';
+import { useEuiTheme } from '@elastic/eui';
+import { useThemeStore } from '../store/themeStore';
 import type { PaletteItem, EDOTNodeData } from '../types';
 
 // Infrastructure node types that can be parents
@@ -212,6 +212,8 @@ interface DropRejection {
 function FlowCanvas() {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition, getNodes } = useReactFlow();
+  const { resolvedTheme } = useThemeStore();
+  const { euiTheme } = useEuiTheme();
 
   // Quick Start panel state
   const [isQuickStartOpen, setIsQuickStartOpen] = useState(false);
@@ -451,7 +453,7 @@ function FlowCanvas() {
   );
 
   return (
-    <div ref={reactFlowWrapper} className="w-full h-screen bg-gray-950">
+    <div ref={reactFlowWrapper} className="w-full h-screen" style={{ backgroundColor: euiTheme.colors.backgroundBaseSubdued }}>
       <ReactFlow
         key={resetKey}
         nodes={nodes}
@@ -480,12 +482,6 @@ function FlowCanvas() {
         elevateEdgesOnSelect
         elevateNodesOnSelect
       >
-        <Background
-          variant={BackgroundVariant.Dots}
-          gap={20}
-          size={1}
-          color="#1f2937"
-        />
         {/* Custom zoom controls replace the default Controls */}
         <ZoomControls />
         <MiniMap
@@ -509,8 +505,8 @@ function FlowCanvas() {
                 return '#6b7280';
             }
           }}
-          maskColor="rgba(0, 0, 0, 0.8)"
-          className="bg-gray-900/90 backdrop-blur border-gray-700 rounded-xl overflow-hidden"
+          maskColor={resolvedTheme === 'dark' ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.8)'}
+          className="!bg-white/90 dark:!bg-gray-900/90 backdrop-blur !border-gray-200 dark:!border-gray-700 rounded-xl overflow-hidden"
         />
       </ReactFlow>
 

@@ -70,6 +70,8 @@ export function generateCollectorYAML(
     (e) => e.type === 'elasticsearch' && e.enabled
   );
   const hasOtlpExporter = exporters.some((e) => e.type === 'otlp' && e.enabled);
+  const hasKafkaExporter = exporters.some((e) => e.type === 'kafka' && e.enabled);
+  const hasKafkaReceiver = receivers.some((r) => r.type === 'kafka' && r.enabled);
   const hasTailSampling = processors.some(
     (p) => p.type === 'tail_sampling' && p.enabled
   );
@@ -226,6 +228,34 @@ export function generateCollectorYAML(
         // Zipkin receiver for legacy compatibility
         yamlConfig.receivers['zipkin'] = {
           endpoint: '0.0.0.0:9411',
+        };
+        break;
+
+      case 'kafka':
+        // Kafka receiver for consuming telemetry from Kafka topics
+        // Uses franz-go client (default in EDOT Collector)
+        // Only otlp_proto and otlp_json encodings are officially supported
+        yamlConfig.receivers['kafka'] = {
+          brokers: ['${env:KAFKA_BROKERS}'],
+          protocol_version: '3.2.0',
+          traces: {
+            topics: ['otlp_spans'],
+            encoding: 'otlp_proto',
+          },
+          metrics: {
+            topics: ['otlp_metrics'],
+            encoding: 'otlp_proto',
+          },
+          logs: {
+            topics: ['otlp_logs'],
+            encoding: 'otlp_proto',
+          },
+          group_id: 'otel-collector',
+          initial_offset: 'latest',
+          autocommit: {
+            enable: true,
+            interval: '1s',
+          },
         };
         break;
     }
@@ -535,6 +565,38 @@ export function generateCollectorYAML(
           },
         };
         break;
+
+      case 'kafka':
+        // Kafka exporter for producing telemetry to Kafka topics
+        // Uses synchronous producer - pair with batch processor for throughput
+        // Only otlp_proto and otlp_json encodings are officially supported in EDOT
+        yamlConfig.exporters['kafka'] = {
+          brokers: ['${env:KAFKA_BROKERS}'],
+          protocol_version: '3.2.0',
+          traces: {
+            topic: 'otlp_spans',
+            encoding: 'otlp_proto',
+          },
+          metrics: {
+            topic: 'otlp_metrics',
+            encoding: 'otlp_proto',
+          },
+          logs: {
+            topic: 'otlp_logs',
+            encoding: 'otlp_proto',
+          },
+          producer: {
+            compression: 'snappy',
+            flush_max_messages: 10000,
+          },
+          retry_on_failure: {
+            enabled: true,
+            initial_interval: '5s',
+            max_interval: '30s',
+            max_elapsed_time: '300s',
+          },
+        };
+        break;
     }
   }
 
@@ -597,6 +659,8 @@ export function generateCollectorYAML(
   const header = generateHeader(nodeData, options, {
     hasElasticsearchExporter,
     hasOtlpExporter,
+    hasKafkaExporter,
+    hasKafkaReceiver,
     useManagedOtlpEndpoint,
     hasTailSampling,
     hasHostMetrics,
@@ -1077,6 +1141,8 @@ function generateHeader(
   context: {
     hasElasticsearchExporter: boolean;
     hasOtlpExporter: boolean;
+    hasKafkaExporter: boolean;
+    hasKafkaReceiver: boolean;
     useManagedOtlpEndpoint: boolean;
     hasTailSampling: boolean;
     hasHostMetrics: boolean;
@@ -1086,6 +1152,8 @@ function generateHeader(
   const {
     hasElasticsearchExporter,
     hasOtlpExporter,
+    hasKafkaExporter,
+    hasKafkaReceiver,
     useManagedOtlpEndpoint,
     hasTailSampling,
     hasHostMetrics,
@@ -1137,6 +1205,13 @@ function generateHeader(
 # For Elasticsearch exporter (direct ingestion):
 #   ELASTICSEARCH_ENDPOINT  - Elasticsearch endpoint (e.g., https://cluster.es.cloud:443)
 #   ELASTICSEARCH_API_KEY   - API key for authentication
+`;
+  }
+
+  if (hasKafkaExporter || hasKafkaReceiver) {
+    header += `#
+# For Kafka integration:
+#   KAFKA_BROKERS           - Comma-separated broker list (e.g., broker1:9092,broker2:9092)
 `;
   }
 

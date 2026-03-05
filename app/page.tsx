@@ -1,137 +1,299 @@
 'use client';
 
+import { useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, Layers, Zap, FileCode } from 'lucide-react';
+import {
+  EuiPageTemplate,
+  EuiTitle,
+  EuiText,
+  EuiCard,
+  EuiFlexGroup,
+  EuiFlexItem,
+  EuiIcon,
+  EuiBadge,
+  EuiSpacer,
+  EuiLink,
+  EuiButtonGroup,
+  EuiHeader,
+  EuiHeaderLogo,
+  EuiHeaderSection,
+  EuiHeaderSectionItem,
+  EuiButtonIcon,
+  EuiPanel,
+  EuiToolTip,
+} from '@elastic/eui';
+import { useFlowStore } from './otel-flow/store/flowStore';
+import { useThemeStore } from './otel-flow/store/themeStore';
+import { DEPLOYMENT_MODEL_CONFIG, type DeploymentModel } from './otel-flow/types';
 
-export default function HomePage() {
+// Shorter labels for the button group to prevent truncation
+const DEPLOYMENT_BUTTON_LABELS: Record<DeploymentModel, string> = {
+  serverless: 'Serverless',
+  ech: 'Cloud Hosted',
+  'self-managed': 'Self-Managed',
+};
+
+const DEPLOYMENT_ICON_MAP: Record<DeploymentModel, string> = {
+  serverless: 'logoCloud',
+  ech: 'logoElasticStack',
+  'self-managed': 'wrench',
+};
+
+const deploymentOptions = (Object.keys(DEPLOYMENT_MODEL_CONFIG) as DeploymentModel[]).map(
+  (model) => ({
+    id: model,
+    label: DEPLOYMENT_BUTTON_LABELS[model],
+    iconType: DEPLOYMENT_ICON_MAP[model],
+  })
+);
+
+const workflowTiles = [
+  {
+    id: 'design',
+    iconType: 'grid',
+    title: 'Design Your Architecture',
+    description: 'Drag and drop EDOT components to build your telemetry pipeline visually',
+    href: '/otel-flow?quickstart=true',
+    tags: ['5 templates', 'Drag & drop', 'Auto-validation'],
+    color: 'primary' as const,
+  },
+  {
+    id: 'import',
+    iconType: 'importAction',
+    title: 'Import Configuration',
+    description: 'Upload existing Collector YAML, Docker Compose, or K8s manifests',
+    href: '/otel-flow?panel=detection&method=yaml',
+    tags: ['.yaml', 'Docker Compose', 'K8s manifests'],
+    color: 'success' as const,
+  },
+  {
+    id: 'detect',
+    iconType: 'online',
+    title: 'Detect Live Traffic',
+    description: 'Analyze incoming OTLP telemetry to auto-discover your topology',
+    href: '/otel-flow?panel=detection&method=traffic',
+    tags: ['Auto-discovery', 'Services', 'Connections'],
+    color: 'accent' as const,
+  },
+];
+
+const capabilities = [
+  { iconType: 'crosshairs', label: 'Health Scoring' },
+  { iconType: 'exportAction', label: 'Multi-format Export' },
+  { iconType: 'bolt', label: 'Live Data Flow' },
+];
+
+export default function HomePage(): React.ReactElement {
   const router = useRouter();
-  const features = [
-    {
-      icon: Layers,
-      title: 'Visual Architecture',
-      description: 'Drag-and-drop EDOT components to build your observability topology',
+  const { deploymentModel, setDeploymentModel } = useFlowStore();
+  const { resolvedTheme, toggleTheme } = useThemeStore();
+  const currentConfig = DEPLOYMENT_MODEL_CONFIG[deploymentModel];
+
+  const handleDeploymentChange = useCallback(
+    (id: string) => {
+      setDeploymentModel(id as DeploymentModel);
     },
-    {
-      icon: Zap,
-      title: 'Live Data Flow',
-      description: 'Watch telemetry particles flow through your pipeline in real-time',
+    [setDeploymentModel]
+  );
+
+  const handleTileClick = useCallback(
+    (href: string) => {
+      router.push(href);
     },
-    {
-      icon: FileCode,
-      title: 'Config Export',
-      description: 'Generate production-ready Collector YAML from your visual design',
-    },
-  ];
+    [router]
+  );
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-8">
-      {/* Hero Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="text-center max-w-4xl mx-auto"
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {/* ── Header (minimal — just theme toggle) ── */}
+      <EuiHeader
+        position="fixed"
+        theme="dark"
+        sections={[
+          {
+            items: [
+              <EuiHeaderLogo key="logo" iconType="logoElastic" href="/">
+                EDOT
+              </EuiHeaderLogo>,
+            ],
+          },
+          {
+            items: [
+              <EuiHeaderSection key="actions">
+                <EuiHeaderSectionItem>
+                  <EuiToolTip content={resolvedTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+                    <EuiButtonIcon
+                      iconType={resolvedTheme === 'dark' ? 'sun' : 'moon'}
+                      onClick={toggleTheme}
+                      aria-label="Toggle theme"
+                      color="text"
+                      size="s"
+                    />
+                  </EuiToolTip>
+                </EuiHeaderSectionItem>
+              </EuiHeaderSection>,
+            ],
+          },
+        ]}
+      />
+
+      {/* ── Main Content ── */}
+      <EuiPageTemplate
+        paddingSize="l"
+        style={{ flex: 1 }}
+        offset={48}
       >
-        {/* Logo/Badge */}
-        <motion.div
-          initial={{ scale: 0.8 }}
-          animate={{ scale: 1 }}
-          transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gray-800/50 border border-gray-700 mb-8"
-        >
-          <span className="relative flex h-3 w-3">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
-          </span>
-          <span className="text-sm text-gray-300">Powered by Elastic Distribution of OpenTelemetry</span>
-        </motion.div>
-
-        {/* Title */}
-        <h1 className="text-5xl md:text-7xl font-bold mb-6">
-          <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500">
-            EDOT Flow
-          </span>
-          <br />
-          <span className="text-gray-100">Visualizer</span>
-        </h1>
-
-        {/* Subtitle */}
-        <p className="text-xl text-gray-400 mb-12 max-w-2xl mx-auto">
-          Understand OpenTelemetry architecture patterns through interactive, 
-          animated diagrams. Design your observability pipeline visually.
-        </p>
-
-        {/* CTA Button */}
-        <motion.button
-          onClick={() => router.push('/otel-flow')}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className="group inline-flex items-center gap-3 px-8 py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold text-lg shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 transition-shadow cursor-pointer"
-        >
-          Launch Visualizer
-          <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-        </motion.button>
-      </motion.div>
-
-      {/* Features Grid */}
-      <motion.div
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4, duration: 0.6 }}
-        className="grid md:grid-cols-3 gap-6 mt-24 max-w-5xl mx-auto"
-      >
-        {features.map((feature, index) => (
+        <EuiPageTemplate.Section alignment="center" grow>
+          {/* Hero */}
           <motion.div
-            key={feature.title}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            style={{ textAlign: 'center', maxWidth: 640, margin: '0 auto' }}
+          >
+            <EuiSpacer size="l" />
+
+            <EuiFlexGroup justifyContent="center" alignItems="center" gutterSize="m" responsive={false}>
+              <EuiFlexItem grow={false}>
+                <EuiIcon type="logoElastic" size="xl" />
+              </EuiFlexItem>
+              <EuiFlexItem grow={false}>
+                <EuiTitle size="l">
+                  <h1 style={{ fontWeight: 700 }}>
+                    EDOT Flow Visualizer
+                  </h1>
+                </EuiTitle>
+              </EuiFlexItem>
+            </EuiFlexGroup>
+
+            <EuiSpacer size="s" />
+
+            <EuiText color="subdued">
+              <p>Design your OTel architecture</p>
+            </EuiText>
+          </motion.div>
+
+          <EuiSpacer size="xl" />
+
+          {/* Deployment Selector */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.15, duration: 0.35 }}
+            style={{ maxWidth: 500, margin: '0 auto' }}
+          >
+            <EuiPanel color="subdued" paddingSize="m" hasBorder={false}>
+              <EuiText size="xs" color="subdued" style={{ textAlign: 'center' }}>
+                <strong>Deployment target</strong>
+              </EuiText>
+              <EuiSpacer size="s" />
+              <EuiButtonGroup
+                legend="Deployment model"
+                options={deploymentOptions}
+                idSelected={deploymentModel}
+                onChange={handleDeploymentChange}
+                buttonSize="compressed"
+                isFullWidth
+              />
+              <EuiSpacer size="xs" />
+              <EuiText size="xs" color="subdued" style={{ textAlign: 'center' }}>
+                <p>{currentConfig.description}</p>
+              </EuiText>
+            </EuiPanel>
+          </motion.div>
+
+          <EuiSpacer size="xl" />
+
+          {/* Workflow Tiles */}
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 + index * 0.1 }}
-            className="p-6 rounded-2xl bg-gray-900/50 border border-gray-800 hover:border-gray-700 transition-colors"
+            transition={{ delay: 0.25, duration: 0.4 }}
+            style={{ maxWidth: 960, margin: '0 auto' }}
           >
-            <div className="w-12 h-12 rounded-xl bg-gray-800 flex items-center justify-center mb-4">
-              <feature.icon className="w-6 h-6 text-cyan-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-white mb-2">{feature.title}</h3>
-            <p className="text-gray-400 text-sm">{feature.description}</p>
+            <EuiFlexGroup gutterSize="l" alignItems="stretch">
+              {workflowTiles.map((tile, index) => (
+                <EuiFlexItem key={tile.id}>
+                  <motion.div
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 + index * 0.08 }}
+                    whileHover={{ y: -3, transition: { duration: 0.15 } }}
+                    style={{ height: '100%' }}
+                  >
+                    <EuiCard
+                      icon={<EuiIcon type={tile.iconType} size="xl" color={tile.color} />}
+                      title={tile.title}
+                      description={tile.description}
+                      paddingSize="l"
+                      onClick={() => handleTileClick(tile.href)}
+                      hasBorder
+                      style={{ cursor: 'pointer', height: '100%' }}
+                      footer={
+                        <EuiFlexGroup gutterSize="xs" wrap responsive={false}>
+                          {tile.tags.map((tag) => (
+                            <EuiFlexItem key={tag} grow={false}>
+                              <EuiBadge color="hollow">{tag}</EuiBadge>
+                            </EuiFlexItem>
+                          ))}
+                        </EuiFlexGroup>
+                      }
+                    />
+                  </motion.div>
+                </EuiFlexItem>
+              ))}
+            </EuiFlexGroup>
           </motion.div>
-        ))}
-      </motion.div>
 
-      {/* Architecture Preview */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.8 }}
-        className="mt-24 text-center"
-      >
-        <p className="text-sm text-gray-500 mb-4">Reference Architecture Patterns</p>
-        <div className="flex flex-wrap justify-center gap-4">
-          {['Simple', 'Agent', 'Gateway', 'Production'].map((pattern) => (
-            <span
-              key={pattern}
-              className="px-4 py-2 rounded-lg bg-gray-800/50 border border-gray-700 text-sm text-gray-300"
-            >
-              {pattern}
-            </span>
-          ))}
-        </div>
-      </motion.div>
+          <EuiSpacer size="xl" />
 
-      {/* Footer */}
-      <footer className="mt-24 text-center text-sm text-gray-500">
-        <p>
-          Learn more about{' '}
-          <a
-            href="https://www.elastic.co/docs/reference/opentelemetry"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-cyan-400 hover:underline"
+          {/* Capabilities — lightweight horizontal strip */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5, duration: 0.35 }}
+            style={{ maxWidth: 640, margin: '0 auto' }}
           >
-            EDOT Documentation
-          </a>
-        </p>
-      </footer>
-    </main>
+            <EuiFlexGroup justifyContent="center" gutterSize="l" responsive={false}>
+              {capabilities.map((cap) => (
+                <EuiFlexItem key={cap.label} grow={false}>
+                  <EuiFlexGroup gutterSize="s" alignItems="center" responsive={false}>
+                    <EuiFlexItem grow={false}>
+                      <EuiIcon type={cap.iconType} color="subdued" size="m" />
+                    </EuiFlexItem>
+                    <EuiFlexItem grow={false}>
+                      <EuiText size="xs" color="subdued">
+                        <span>{cap.label}</span>
+                      </EuiText>
+                    </EuiFlexItem>
+                  </EuiFlexGroup>
+                </EuiFlexItem>
+              ))}
+            </EuiFlexGroup>
+          </motion.div>
+
+          <EuiSpacer size="xl" />
+
+          {/* Footer */}
+          <div style={{ textAlign: 'center' }}>
+            <EuiText size="xs" color="subdued">
+              <p>
+                Powered by{' '}
+                <EuiLink
+                  href="https://www.elastic.co/docs/reference/opentelemetry"
+                  target="_blank"
+                  external
+                >
+                  Elastic Distribution of OpenTelemetry
+                </EuiLink>
+              </p>
+            </EuiText>
+          </div>
+
+          <EuiSpacer size="l" />
+        </EuiPageTemplate.Section>
+      </EuiPageTemplate>
+    </div>
   );
 }

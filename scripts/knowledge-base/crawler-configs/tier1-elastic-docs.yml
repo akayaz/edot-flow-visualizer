@@ -1,0 +1,62 @@
+# Tier 1 — Elastic Official Documentation
+# Crawls EDOT-related pages from elastic.co/docs
+# Outputs to: edot-assistant-docs-elastic-v1
+
+output_sink: elasticsearch
+output_index: edot-assistant-docs-elastic-v1
+
+max_crawl_depth: 5
+max_unique_url_count: 500
+max_body_size: 5_242_880
+purge_crawl_enabled: false
+threads_per_crawl: 5
+stats_dump_interval: 15
+
+elasticsearch:
+  host: <%= ENV['ES_HOST'] %>
+  port: 443
+  api_key: <%= ENV['ES_API_KEY'] %>
+  pipeline: edot-crawler-docs-elastic
+  pipeline_enabled: true
+
+domains:
+  - url: https://www.elastic.co
+    seed_urls:
+      - https://www.elastic.co/docs/reference/opentelemetry
+      - https://www.elastic.co/docs/reference/edot-collector
+      - https://www.elastic.co/docs/reference/opentelemetry/edot-sdks/python
+      - https://www.elastic.co/docs/reference/opentelemetry/edot-sdks/java
+      - https://www.elastic.co/docs/reference/opentelemetry/edot-sdks/node
+      - https://www.elastic.co/docs/reference/opentelemetry/edot-sdks/dotnet
+      - https://www.elastic.co/docs/reference/opentelemetry/edot-sdks/android
+      - https://www.elastic.co/docs/reference/opentelemetry/compatibility/data-streams
+      - https://www.elastic.co/docs/solutions/observability/apm/opentelemetry
+      - https://www.elastic.co/docs/solutions/search/elastic-agent-builder
+      - https://www.elastic.co/docs/solutions/search/semantic-search
+
+    exclude_tags:
+      - header
+      - footer
+      - nav
+
+    crawl_rules:
+      # Allow EDOT documentation paths
+      - policy: allow
+        type: begins
+        pattern: /docs/reference/opentelemetry
+      - policy: allow
+        type: begins
+        pattern: /docs/reference/edot-collector
+      - policy: allow
+        type: begins
+        pattern: /docs/solutions/observability/apm/opentelemetry
+      - policy: allow
+        type: begins
+        pattern: /docs/solutions/search/elastic-agent-builder
+      - policy: allow
+        type: begins
+        pattern: /docs/solutions/search/semantic-search
+      # Deny everything else on elastic.co
+      - policy: deny
+        type: regex
+        pattern: .*

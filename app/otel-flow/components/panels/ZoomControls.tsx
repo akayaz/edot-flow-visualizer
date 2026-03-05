@@ -2,19 +2,23 @@
 
 import { memo, useCallback, useEffect, useState } from 'react';
 import { useReactFlow, useViewport } from '@xyflow/react';
-import { motion } from 'framer-motion';
-import { ZoomIn, ZoomOut, Maximize2, RotateCcw } from 'lucide-react';
+import {
+  EuiButtonIcon,
+  EuiPanel,
+  EuiFlexGroup,
+  EuiFlexItem,
+  EuiText,
+  EuiToolTip,
+} from '@elastic/eui';
 
-const ZOOM_STEP = 0.25;
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 2;
 
-export const ZoomControls = memo(() => {
+export const ZoomControls = memo((): React.ReactElement => {
   const { zoomIn, zoomOut, fitView, setViewport } = useReactFlow();
   const viewport = useViewport();
   const [zoomPercent, setZoomPercent] = useState(100);
 
-  // Update zoom percentage when viewport changes
   useEffect(() => {
     setZoomPercent(Math.round(viewport.zoom * 100));
   }, [viewport.zoom]);
@@ -37,28 +41,21 @@ export const ZoomControls = memo(() => {
 
   // Keyboard shortcuts
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Check if user is typing in an input
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
-      }
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
-      // Cmd/Ctrl + Plus: Zoom in
       if ((e.metaKey || e.ctrlKey) && (e.key === '=' || e.key === '+')) {
         e.preventDefault();
         handleZoomIn();
       }
-      // Cmd/Ctrl + Minus: Zoom out
       if ((e.metaKey || e.ctrlKey) && e.key === '-') {
         e.preventDefault();
         handleZoomOut();
       }
-      // Cmd/Ctrl + 0: Reset zoom
       if ((e.metaKey || e.ctrlKey) && e.key === '0') {
         e.preventDefault();
         handleResetZoom();
       }
-      // Cmd/Ctrl + 1: Fit view
       if ((e.metaKey || e.ctrlKey) && e.key === '1') {
         e.preventDefault();
         handleFitView();
@@ -69,79 +66,48 @@ export const ZoomControls = memo(() => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleZoomIn, handleZoomOut, handleResetZoom, handleFitView]);
 
-  const isMinZoom = viewport.zoom <= MIN_ZOOM;
-  const isMaxZoom = viewport.zoom >= MAX_ZOOM;
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.3 }}
-      className="fixed bottom-6 left-1/3 -translate-x-1/2 z-40 flex items-center gap-1 p-1 rounded-xl bg-gray-900/95 backdrop-blur-md border border-gray-700/50 shadow-xl"
+    <EuiPanel
+      paddingSize="xs"
+      borderRadius="m"
+      hasShadow
+      style={{
+        position: 'fixed',
+        bottom: 24,
+        left: '33%',
+        transform: 'translateX(-50%)',
+        zIndex: 40,
+      }}
     >
-      {/* Zoom Out */}
-      <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={handleZoomOut}
-        disabled={isMinZoom}
-        className={`
-          p-2 rounded-lg transition-colors
-          ${isMinZoom 
-            ? 'text-gray-600 cursor-not-allowed' 
-            : 'text-gray-400 hover:text-white hover:bg-gray-800'
-          }
-        `}
-        title="Zoom out (⌘-)"
-      >
-        <ZoomOut size={18} />
-      </motion.button>
+      <EuiFlexGroup alignItems="center" gutterSize="xs" responsive={false}>
+        <EuiFlexItem grow={false}>
+          <EuiToolTip content="Reset to 100% (⌘0)" position="top">
+            <button
+              onClick={handleResetZoom}
+              style={{ minWidth: 50, textAlign: 'center', cursor: 'pointer', background: 'none', border: 'none', padding: '4px 8px' }}
+            >
+              <EuiText size="xs"><strong>{zoomPercent}%</strong></EuiText>
+            </button>
+          </EuiToolTip>
+        </EuiFlexItem>
 
-      {/* Zoom Percentage */}
-      <motion.button
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-        onClick={handleResetZoom}
-        className="min-w-[60px] px-2 py-1.5 rounded-lg text-xs font-mono font-medium text-gray-300 hover:text-white hover:bg-gray-800 transition-colors"
-        title="Reset to 100% (⌘0)"
-      >
-        {zoomPercent}%
-      </motion.button>
+        <EuiFlexItem grow={false}>
+          <div style={{ width: 1, height: 24, background: 'var(--rf-handle-border)' }} />
+        </EuiFlexItem>
 
-      {/* Zoom In */}
-      <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={handleZoomIn}
-        disabled={isMaxZoom}
-        className={`
-          p-2 rounded-lg transition-colors
-          ${isMaxZoom 
-            ? 'text-gray-600 cursor-not-allowed' 
-            : 'text-gray-400 hover:text-white hover:bg-gray-800'
-          }
-        `}
-        title="Zoom in (⌘+)"
-      >
-        <ZoomIn size={18} />
-      </motion.button>
-
-      {/* Divider */}
-      <div className="w-px h-6 bg-gray-700/50 mx-1" />
-
-      {/* Fit View */}
-      <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={handleFitView}
-        className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
-        title="Fit to view (⌘1)"
-      >
-        <Maximize2 size={18} />
-      </motion.button>
-    </motion.div>
+        <EuiFlexItem grow={false}>
+          <EuiToolTip content="Fit to view (⌘1)" position="top">
+            <EuiButtonIcon
+              iconType="expand"
+              onClick={handleFitView}
+              aria-label="Fit to view"
+              size="s"
+            />
+          </EuiToolTip>
+        </EuiFlexItem>
+      </EuiFlexGroup>
+    </EuiPanel>
   );
 });
 
 ZoomControls.displayName = 'ZoomControls';
-

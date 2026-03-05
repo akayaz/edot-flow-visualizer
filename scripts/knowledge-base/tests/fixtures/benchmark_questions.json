@@ -1,0 +1,402 @@
+[
+  {
+    "id": "edot-collector-01",
+    "category": "collector_configuration",
+    "question": "How do I configure the EDOT Collector to send traces to Elastic APM?",
+    "expected_keywords": ["otlp/elastic", "exporter", "endpoint", "Authorization", "Bearer"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "basic"
+  },
+  {
+    "id": "edot-collector-02",
+    "category": "collector_configuration",
+    "question": "What processors should I use in an EDOT Collector pipeline and in what order?",
+    "expected_keywords": ["memory_limiter", "batch", "first", "processors"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "basic"
+  },
+  {
+    "id": "edot-collector-03",
+    "category": "collector_configuration",
+    "question": "How do I configure the hostmetrics receiver in the EDOT Collector?",
+    "expected_keywords": ["hostmetrics", "receiver", "cpu", "memory", "disk", "collection_interval"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "intermediate"
+  },
+  {
+    "id": "edot-collector-04",
+    "category": "collector_configuration",
+    "question": "What is the difference between EDOT Collector Agent mode and Gateway mode?",
+    "expected_keywords": ["agent", "gateway", "sidecar", "per-host", "centralized"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "basic"
+  },
+  {
+    "id": "edot-collector-05",
+    "category": "collector_configuration",
+    "question": "How do I set up the memory_limiter processor with proper thresholds?",
+    "expected_keywords": ["memory_limiter", "check_interval", "limit_mib", "spike_limit_mib"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "intermediate"
+  },
+  {
+    "id": "edot-collector-06",
+    "category": "collector_configuration",
+    "question": "How do I enable both gRPC and HTTP protocols on the OTLP receiver?",
+    "expected_keywords": ["otlp", "grpc", "http", "4317", "4318"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "basic"
+  },
+  {
+    "id": "edot-collector-07",
+    "category": "collector_configuration",
+    "question": "How do I configure tail sampling in the EDOT Collector Gateway?",
+    "expected_keywords": ["tail_sampling", "policies", "gateway", "decision_wait"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "advanced"
+  },
+  {
+    "id": "edot-collector-08",
+    "category": "collector_configuration",
+    "question": "How do I configure the EDOT Collector to scrape Prometheus metrics?",
+    "expected_keywords": ["prometheus", "receiver", "scrape", "targets"],
+    "expected_indices": ["edot-assistant-docs-elastic", "edot-assistant-github-repos"],
+    "difficulty": "intermediate"
+  },
+  {
+    "id": "edot-collector-09",
+    "category": "collector_configuration",
+    "question": "How do I set up the filelog receiver to collect application logs?",
+    "expected_keywords": ["filelog", "receiver", "include", "operators"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "intermediate"
+  },
+  {
+    "id": "edot-collector-10",
+    "category": "collector_configuration",
+    "question": "What are the recommended batch processor settings for high-throughput environments?",
+    "expected_keywords": ["batch", "send_batch_size", "timeout", "send_batch_max_size"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "advanced"
+  },
+  {
+    "id": "edot-collector-11",
+    "category": "collector_configuration",
+    "question": "How do I configure TLS for the OTLP exporter in EDOT Collector?",
+    "expected_keywords": ["tls", "cert_file", "key_file", "ca_file", "insecure"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "intermediate"
+  },
+  {
+    "id": "edot-collector-12",
+    "category": "collector_configuration",
+    "question": "How do I add custom resource attributes to all telemetry from the EDOT Collector?",
+    "expected_keywords": ["resource", "attributes", "processor", "OTEL_RESOURCE_ATTRIBUTES"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "intermediate"
+  },
+  {
+    "id": "edot-collector-13",
+    "category": "collector_configuration",
+    "question": "How do I filter or drop specific spans in the EDOT Collector?",
+    "expected_keywords": ["filter", "processor", "span", "drop", "exclude"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "advanced"
+  },
+  {
+    "id": "edot-collector-14",
+    "category": "collector_configuration",
+    "question": "How do I configure the EDOT Collector to run as a Kubernetes DaemonSet?",
+    "expected_keywords": ["DaemonSet", "Kubernetes", "hostNetwork", "agent"],
+    "expected_indices": ["edot-assistant-docs-elastic", "edot-assistant-github-repos"],
+    "difficulty": "advanced"
+  },
+  {
+    "id": "edot-collector-15",
+    "category": "collector_configuration",
+    "question": "What environment variables does the EDOT Collector support?",
+    "expected_keywords": ["ELASTIC_APM_ENDPOINT", "ELASTIC_APM_SECRET_TOKEN", "OTEL_EXPORTER_OTLP_ENDPOINT"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "basic"
+  },
+  {
+    "id": "edot-sdk-01",
+    "category": "sdk_instrumentation",
+    "question": "How do I instrument a Python application with the EDOT Python SDK?",
+    "expected_keywords": ["edot-python", "pip", "opentelemetry", "auto-instrumentation"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "basic"
+  },
+  {
+    "id": "edot-sdk-02",
+    "category": "sdk_instrumentation",
+    "question": "How do I set up the EDOT Java SDK with a Spring Boot application?",
+    "expected_keywords": ["java", "javaagent", "spring", "edot-java"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "basic"
+  },
+  {
+    "id": "edot-sdk-03",
+    "category": "sdk_instrumentation",
+    "question": "How do I add custom spans in a Node.js application using the EDOT SDK?",
+    "expected_keywords": ["tracer", "startSpan", "node", "custom", "span"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "intermediate"
+  },
+  {
+    "id": "edot-sdk-04",
+    "category": "sdk_instrumentation",
+    "question": "How do I configure the EDOT .NET SDK for an ASP.NET Core application?",
+    "expected_keywords": ["dotnet", "ASP.NET", "AddOpenTelemetry", "edot"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "intermediate"
+  },
+  {
+    "id": "edot-sdk-05",
+    "category": "sdk_instrumentation",
+    "question": "What is the difference between EDOT SDKs and standard OpenTelemetry SDKs?",
+    "expected_keywords": ["EDOT", "distribution", "pre-configured", "Elastic", "enhanced"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "basic"
+  },
+  {
+    "id": "edot-sdk-06",
+    "category": "sdk_instrumentation",
+    "question": "How do I export metrics from the EDOT Python SDK?",
+    "expected_keywords": ["metrics", "meter", "counter", "histogram", "python"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "intermediate"
+  },
+  {
+    "id": "edot-sdk-07",
+    "category": "sdk_instrumentation",
+    "question": "How do I configure log correlation in the EDOT Java SDK?",
+    "expected_keywords": ["log", "correlation", "trace_id", "span_id", "MDC"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "advanced"
+  },
+  {
+    "id": "edot-sdk-08",
+    "category": "sdk_instrumentation",
+    "question": "How do I use context propagation across microservices with EDOT?",
+    "expected_keywords": ["context", "propagation", "W3C", "traceparent", "baggage"],
+    "expected_indices": ["edot-assistant-docs-elastic", "edot-assistant-docs-otel"],
+    "difficulty": "advanced"
+  },
+  {
+    "id": "edot-sdk-09",
+    "category": "sdk_instrumentation",
+    "question": "How do I instrument database calls in the EDOT Python SDK?",
+    "expected_keywords": ["database", "SQLAlchemy", "psycopg2", "instrumentation", "python"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "intermediate"
+  },
+  {
+    "id": "edot-sdk-10",
+    "category": "sdk_instrumentation",
+    "question": "How do I set up the EDOT Android SDK for a mobile application?",
+    "expected_keywords": ["android", "mobile", "gradle", "edot-android"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "intermediate"
+  },
+  {
+    "id": "edot-sdk-11",
+    "category": "sdk_instrumentation",
+    "question": "How do I configure sampling in the EDOT Java SDK?",
+    "expected_keywords": ["sampling", "sampler", "traceIdRatio", "parentBased"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "intermediate"
+  },
+  {
+    "id": "edot-sdk-12",
+    "category": "sdk_instrumentation",
+    "question": "How do I disable specific auto-instrumentation in the EDOT Node.js SDK?",
+    "expected_keywords": ["disable", "instrumentation", "OTEL_NODE_DISABLED_INSTRUMENTATIONS"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "intermediate"
+  },
+  {
+    "id": "edot-sdk-13",
+    "category": "sdk_instrumentation",
+    "question": "How do I add custom attributes to spans in the EDOT Python SDK?",
+    "expected_keywords": ["attribute", "set_attribute", "span", "custom", "python"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "basic"
+  },
+  {
+    "id": "edot-sdk-14",
+    "category": "sdk_instrumentation",
+    "question": "What instrumentation libraries does the EDOT Java SDK include out of the box?",
+    "expected_keywords": ["instrumentation", "spring", "servlet", "JDBC", "auto"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "basic"
+  },
+  {
+    "id": "edot-sdk-15",
+    "category": "sdk_instrumentation",
+    "question": "How do I configure the EDOT Python SDK to send telemetry to the EDOT Collector?",
+    "expected_keywords": ["OTEL_EXPORTER_OTLP_ENDPOINT", "collector", "4317", "4318"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "basic"
+  },
+  {
+    "id": "edot-arch-01",
+    "category": "architecture_patterns",
+    "question": "What is the recommended EDOT architecture for a Kubernetes microservices deployment?",
+    "expected_keywords": ["DaemonSet", "sidecar", "gateway", "Kubernetes", "namespace"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "advanced"
+  },
+  {
+    "id": "edot-arch-02",
+    "category": "architecture_patterns",
+    "question": "When should I use a collector gateway vs direct SDK-to-backend export?",
+    "expected_keywords": ["gateway", "direct", "sampling", "routing", "aggregation"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "intermediate"
+  },
+  {
+    "id": "edot-arch-03",
+    "category": "architecture_patterns",
+    "question": "How do I set up a two-tier collector architecture with agent and gateway?",
+    "expected_keywords": ["agent", "gateway", "two-tier", "loadbalancing", "exporter"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "advanced"
+  },
+  {
+    "id": "edot-arch-04",
+    "category": "architecture_patterns",
+    "question": "How should I deploy the EDOT Collector for a Docker Compose environment?",
+    "expected_keywords": ["docker", "compose", "service", "volumes", "network"],
+    "expected_indices": ["edot-assistant-docs-elastic", "edot-assistant-github-repos"],
+    "difficulty": "intermediate"
+  },
+  {
+    "id": "edot-arch-05",
+    "category": "architecture_patterns",
+    "question": "What is the recommended way to handle high-cardinality data in the collector?",
+    "expected_keywords": ["cardinality", "attributes", "filter", "transform", "processor"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "advanced"
+  },
+  {
+    "id": "edot-arch-06",
+    "category": "architecture_patterns",
+    "question": "How do I set up the EDOT Collector behind a load balancer?",
+    "expected_keywords": ["load balancer", "gRPC", "HTTP", "health", "endpoint"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "advanced"
+  },
+  {
+    "id": "edot-arch-07",
+    "category": "architecture_patterns",
+    "question": "What is the recommended architecture for multi-cluster Kubernetes observability with EDOT?",
+    "expected_keywords": ["multi-cluster", "gateway", "central", "federation"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "advanced"
+  },
+  {
+    "id": "edot-arch-08",
+    "category": "architecture_patterns",
+    "question": "How do I configure the OpenTelemetry Operator to deploy EDOT Collectors?",
+    "expected_keywords": ["operator", "OpenTelemetryCollector", "CRD", "instrumentation"],
+    "expected_indices": ["edot-assistant-docs-elastic", "edot-assistant-github-repos"],
+    "difficulty": "advanced"
+  },
+  {
+    "id": "edot-arch-09",
+    "category": "architecture_patterns",
+    "question": "How should I separate traces, metrics, and logs pipelines in the collector?",
+    "expected_keywords": ["pipelines", "traces", "metrics", "logs", "service"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "intermediate"
+  },
+  {
+    "id": "edot-arch-10",
+    "category": "architecture_patterns",
+    "question": "What is the Elastic OpenTelemetry demo application and how do I run it?",
+    "expected_keywords": ["demo", "astronomy", "docker", "compose", "microservices"],
+    "expected_indices": ["edot-assistant-github-repos"],
+    "difficulty": "basic"
+  },
+  {
+    "id": "edot-version-01",
+    "category": "version_compatibility",
+    "question": "What is the latest version of the EDOT Python SDK?",
+    "expected_keywords": ["version", "release", "python"],
+    "expected_indices": ["edot-assistant-github-repos"],
+    "difficulty": "basic"
+  },
+  {
+    "id": "edot-version-02",
+    "category": "version_compatibility",
+    "question": "Is the EDOT Collector GA or in technical preview?",
+    "expected_keywords": ["GA", "generally available", "technical preview", "status"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "basic"
+  },
+  {
+    "id": "edot-version-03",
+    "category": "version_compatibility",
+    "question": "What versions of Elasticsearch are compatible with EDOT?",
+    "expected_keywords": ["Elasticsearch", "compatible", "version", "stack"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "basic"
+  },
+  {
+    "id": "edot-version-04",
+    "category": "version_compatibility",
+    "question": "Which OpenTelemetry Collector version is the EDOT Collector based on?",
+    "expected_keywords": ["upstream", "based on", "version", "collector"],
+    "expected_indices": ["edot-assistant-docs-elastic", "edot-assistant-github-repos"],
+    "difficulty": "intermediate"
+  },
+  {
+    "id": "edot-version-05",
+    "category": "version_compatibility",
+    "question": "What semantic conventions version does EDOT currently support?",
+    "expected_keywords": ["semantic conventions", "version", "semconv"],
+    "expected_indices": ["edot-assistant-docs-elastic", "edot-assistant-github-repos"],
+    "difficulty": "advanced"
+  },
+  {
+    "id": "edot-troubleshoot-01",
+    "category": "troubleshooting",
+    "question": "My EDOT Collector is dropping spans. How do I diagnose and fix this?",
+    "expected_keywords": ["dropped", "memory_limiter", "queue", "batch", "debug"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "advanced"
+  },
+  {
+    "id": "edot-troubleshoot-02",
+    "category": "troubleshooting",
+    "question": "I'm getting 'connection refused' errors from my EDOT SDK to the collector. How do I fix this?",
+    "expected_keywords": ["connection", "refused", "endpoint", "port", "gRPC"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "intermediate"
+  },
+  {
+    "id": "edot-troubleshoot-03",
+    "category": "troubleshooting",
+    "question": "How do I enable debug logging in the EDOT Collector?",
+    "expected_keywords": ["debug", "logging", "verbosity", "service", "telemetry"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "basic"
+  },
+  {
+    "id": "edot-troubleshoot-04",
+    "category": "troubleshooting",
+    "question": "The EDOT Collector is consuming too much memory. How do I reduce its footprint?",
+    "expected_keywords": ["memory", "memory_limiter", "batch", "queue_size", "limit_mib"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "intermediate"
+  },
+  {
+    "id": "edot-troubleshoot-05",
+    "category": "troubleshooting",
+    "question": "My traces are not appearing in Elastic APM after setting up EDOT. What should I check?",
+    "expected_keywords": ["APM", "exporter", "endpoint", "authorization", "pipeline"],
+    "expected_indices": ["edot-assistant-docs-elastic"],
+    "difficulty": "intermediate"
+  }
+]

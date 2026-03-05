@@ -10,51 +10,61 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Activity,
-  TrendingUp,
-  DollarSign,
-  Shield,
-  Eye,
-  CheckCircle,
-  Info,
-  AlertCircle,
-} from 'lucide-react';
+  EuiIcon,
+  EuiText,
+  EuiFlexGroup,
+  EuiFlexItem,
+  EuiPanel,
+  EuiProgress,
+  EuiCallOut,
+  EuiSpacer,
+  EuiButtonEmpty,
+  EuiLoadingSpinner,
+  EuiBadge,
+  EuiStat,
+} from '@elastic/eui';
 import { useHealthScoreStore } from '../../store/healthScoreStore';
-import type { HealthScore, HealthBreakdown, ScoredRecommendation, ResourceEstimates, Assumption } from '../../lib/health-score/types';
+import type {
+  HealthScore,
+  HealthBreakdown,
+  ScoredRecommendation,
+  ResourceEstimates,
+  Assumption,
+} from '../../lib/health-score/types';
 
-export function HealthScorePanel() {
+export function HealthScorePanel(): React.ReactElement {
   const { healthScore, isCalculating, error } = useHealthScoreStore();
 
   if (error) {
     return (
-      <div className="p-4 text-center text-red-400">
-        <AlertCircle className="w-6 h-6 mx-auto mb-2" />
-        <p className="text-sm">Error calculating health score</p>
-        <p className="text-xs text-gray-500 mt-1">{error}</p>
-      </div>
+      <EuiCallOut title="Error calculating health score" color="danger" iconType="error" size="s">
+        <EuiText size="xs" color="subdued"><p>{error}</p></EuiText>
+      </EuiCallOut>
     );
   }
 
   if (isCalculating) {
     return (
-      <div className="p-4 text-center text-gray-400">
-        <Activity className="w-6 h-6 mx-auto mb-2 animate-pulse" />
-        <p className="text-sm">Calculating health score...</p>
+      <div style={{ textAlign: 'center', padding: 16 }}>
+        <EuiLoadingSpinner size="l" />
+        <EuiSpacer size="s" />
+        <EuiText size="s" color="subdued"><p>Calculating health score...</p></EuiText>
       </div>
     );
   }
 
   if (!healthScore) {
     return (
-      <div className="p-4 text-center text-gray-400">
-        <Info className="w-6 h-6 mx-auto mb-2" />
-        <p className="text-sm">Build a topology to see health score</p>
+      <div style={{ textAlign: 'center', padding: 16 }}>
+        <EuiIcon type="info" size="xl" color="subdued" />
+        <EuiSpacer size="s" />
+        <EuiText size="s" color="subdued"><p>Build a topology to see health score</p></EuiText>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 p-4">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 4 }}>
       {/* Overall Score */}
       <ScoreHeader score={healthScore} />
 
@@ -65,7 +75,7 @@ export function HealthScorePanel() {
       <RecommendationsList recommendations={healthScore.recommendations.slice(0, 3)} />
 
       {/* Resource Estimates */}
-      <ResourceEstimates estimates={healthScore.estimates} />
+      <ResourceEstimatesSection estimates={healthScore.estimates} />
 
       {/* Assumptions */}
       <AssumptionsFooter assumptions={healthScore.assumptions} />
@@ -75,14 +85,14 @@ export function HealthScorePanel() {
 
 // ============ Sub-components ============
 
-function ScoreHeader({ score }: { score: HealthScore }) {
-  const gradeColor: Record<string, string> = {
-    S: 'text-purple-400',
-    A: 'text-green-400',
-    B: 'text-cyan-400',
-    C: 'text-yellow-400',
-    D: 'text-orange-400',
-    F: 'text-red-400',
+function ScoreHeader({ score }: { score: HealthScore }): React.ReactElement {
+  const gradeColor: Record<string, 'accent' | 'success' | 'primary' | 'warning' | 'danger'> = {
+    S: 'accent',
+    A: 'success',
+    B: 'primary',
+    C: 'warning',
+    D: 'warning',
+    F: 'danger',
   };
 
   const gradeLabel: Record<string, string> = {
@@ -95,61 +105,62 @@ function ScoreHeader({ score }: { score: HealthScore }) {
   };
 
   return (
-    <div className="flex items-center justify-between">
-      <div>
-        <h3 className="text-lg font-medium text-gray-100">Health Score</h3>
-        <p className="text-sm text-gray-400">Architecture Quality Assessment</p>
-      </div>
-      <div className="text-right">
-        <div className={`text-3xl font-bold ${gradeColor[score.grade]}`}>
-          {score.overall}/100
-        </div>
-        <div className={`text-sm ${gradeColor[score.grade]}`}>
-          Grade {score.grade} • {gradeLabel[score.grade]}
-        </div>
-        <div className="text-xs text-gray-500 mt-1">
-          {score.confidence} confidence
-        </div>
-      </div>
-    </div>
+    <EuiFlexGroup alignItems="center" justifyContent="spaceBetween" responsive={false}>
+      <EuiFlexItem>
+        <EuiText size="s"><strong>Health Score</strong></EuiText>
+        <EuiText size="xs" color="subdued"><p>Architecture Quality Assessment</p></EuiText>
+      </EuiFlexItem>
+      <EuiFlexItem grow={false} style={{ textAlign: 'right' }}>
+        <EuiText size="s">
+          <span style={{ fontSize: 24, fontWeight: 700 }}>{score.overall}</span>
+          <span style={{ color: 'var(--euiColorMediumShade)' }}>/100</span>
+        </EuiText>
+        <EuiBadge color={gradeColor[score.grade]}>
+          Grade {score.grade} &bull; {gradeLabel[score.grade]}
+        </EuiBadge>
+        <EuiText size="xs" color="subdued"><p>{score.confidence} confidence</p></EuiText>
+      </EuiFlexItem>
+    </EuiFlexGroup>
   );
 }
 
-function CategoryBreakdown({ breakdown }: { breakdown: HealthBreakdown }) {
+function CategoryBreakdown({ breakdown }: { breakdown: HealthBreakdown }): React.ReactElement {
   const categories = [
-    { key: 'configuration' as const, icon: Activity, label: 'Configuration', color: 'cyan' },
-    { key: 'performance' as const, icon: TrendingUp, label: 'Performance', color: 'blue' },
-    { key: 'cost' as const, icon: DollarSign, label: 'Cost Efficiency', color: 'green' },
-    { key: 'reliability' as const, icon: Shield, label: 'Reliability', color: 'purple' },
-    { key: 'observability' as const, icon: Eye, label: 'Observability', color: 'amber' },
+    { key: 'configuration' as const, iconType: 'gear', label: 'Configuration', color: '#06b6d4' as const },
+    { key: 'performance' as const, iconType: 'visArea', label: 'Performance', color: '#3b82f6' as const },
+    { key: 'cost' as const, iconType: 'currency', label: 'Cost Efficiency', color: '#10b981' as const },
+    { key: 'reliability' as const, iconType: 'shield', label: 'Reliability', color: '#8b5cf6' as const },
+    { key: 'observability' as const, iconType: 'eye', label: 'Observability', color: '#f59e0b' as const },
   ];
 
   return (
-    <div className="space-y-2">
-      <h4 className="text-sm font-medium text-gray-300">Category Breakdown</h4>
-      {categories.map(({ key, icon: Icon, label, color }) => {
+    <div>
+      <EuiText size="xs"><strong>Category Breakdown</strong></EuiText>
+      <EuiSpacer size="xs" />
+      {categories.map(({ key, iconType, label, color }) => {
         const cat = breakdown[key];
-        const percentage = (cat.score / cat.maxScore) * 100;
+        const percentage = Math.round((cat.score / cat.maxScore) * 100);
 
         return (
-          <div key={key} className="space-y-1">
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-2">
-                <Icon className={`w-4 h-4 text-${color}-400`} />
-                <span className="text-gray-300">{label}</span>
-              </div>
-              <span className="text-gray-400">
-                {cat.score}/{cat.maxScore}
-              </span>
-            </div>
-            <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${percentage}%` }}
-                transition={{ duration: 0.5, ease: 'easeOut' }}
-                className={`h-full bg-${color}-500`}
-              />
-            </div>
+          <div key={key} style={{ marginBottom: 8 }}>
+            <EuiFlexGroup alignItems="center" justifyContent="spaceBetween" gutterSize="s" responsive={false}>
+              <EuiFlexItem grow={false}>
+                <EuiFlexGroup alignItems="center" gutterSize="s" responsive={false}>
+                  <EuiFlexItem grow={false}>
+                    <EuiIcon type={iconType} size="s" color={color} />
+                  </EuiFlexItem>
+                  <EuiFlexItem grow={false}>
+                    <EuiText size="xs"><span>{label}</span></EuiText>
+                  </EuiFlexItem>
+                </EuiFlexGroup>
+              </EuiFlexItem>
+              <EuiFlexItem grow={false}>
+                <EuiText size="xs" color="subdued">
+                  <span>{cat.score}/{cat.maxScore}</span>
+                </EuiText>
+              </EuiFlexItem>
+            </EuiFlexGroup>
+            <EuiProgress value={percentage} max={100} size="s" color={color as 'primary'} />
           </div>
         );
       })}
@@ -157,67 +168,75 @@ function CategoryBreakdown({ breakdown }: { breakdown: HealthBreakdown }) {
   );
 }
 
-function RecommendationsList({ recommendations }: { recommendations: ScoredRecommendation[] }) {
+function RecommendationsList({ recommendations }: { recommendations: ScoredRecommendation[] }): React.ReactElement {
   if (recommendations.length === 0) {
     return (
-      <div className="flex items-center gap-2 text-green-400 text-sm p-3 bg-green-500/10 rounded-lg border border-green-500/30">
-        <CheckCircle className="w-4 h-4 flex-shrink-0" />
-        <span>No major issues found - architecture looks good!</span>
-      </div>
+      <EuiCallOut
+        title="No major issues found - architecture looks good!"
+        color="success"
+        iconType="checkInCircleFilled"
+        size="s"
+      />
     );
   }
 
   return (
-    <div className="space-y-2">
-      <h4 className="text-sm font-medium text-gray-300">Top Recommendations</h4>
+    <div>
+      <EuiText size="xs"><strong>Top Recommendations</strong></EuiText>
+      <EuiSpacer size="xs" />
       {recommendations.map((rec) => (
-        <div
-          key={rec.id}
-          className="p-3 bg-gray-800/50 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors"
-        >
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-gray-200">{rec.title}</div>
-              <div className="text-xs text-gray-400 mt-1">{rec.description}</div>
+        <EuiPanel key={rec.id} paddingSize="s" hasBorder style={{ marginBottom: 8 }}>
+          <EuiFlexGroup alignItems="flexStart" justifyContent="spaceBetween" gutterSize="s" responsive={false}>
+            <EuiFlexItem>
+              <EuiText size="xs"><strong>{rec.title}</strong></EuiText>
+              <EuiText size="xs" color="subdued"><p>{rec.description}</p></EuiText>
               {rec.action && (
-                <div className="text-xs text-cyan-400 mt-1">→ {rec.action}</div>
+                <EuiText size="xs" color="primary"><p>&rarr; {rec.action}</p></EuiText>
               )}
-            </div>
-            <div className="text-right flex-shrink-0">
-              <div className="text-sm font-medium text-cyan-400">+{rec.scoreImprovement}</div>
+            </EuiFlexItem>
+            <EuiFlexItem grow={false} style={{ textAlign: 'right' }}>
+              <EuiText size="xs" color="primary"><strong>+{rec.scoreImprovement}</strong></EuiText>
               {rec.costSavings && (
-                <div className="text-xs text-green-400">-${rec.costSavings}/mo</div>
+                <EuiText size="xs" color="success"><span>-${rec.costSavings}/mo</span></EuiText>
               )}
-            </div>
-          </div>
-        </div>
+            </EuiFlexItem>
+          </EuiFlexGroup>
+        </EuiPanel>
       ))}
     </div>
   );
 }
 
-function ResourceEstimates({ estimates }: { estimates: ResourceEstimates }) {
+function ResourceEstimatesSection({ estimates }: { estimates: ResourceEstimates }): React.ReactElement {
   return (
-    <div className="space-y-2">
-      <h4 className="text-sm font-medium text-gray-300">Resource Estimates</h4>
-      <div className="grid grid-cols-2 gap-3">
-        <EstimateCard
-          label="Memory"
-          value={`${estimates.memory.estimated}MB`}
-          range={`${estimates.memory.range.min}-${estimates.memory.range.max}MB`}
-          confidence={estimates.memory.confidence}
-        />
-        <EstimateCard
-          label="Monthly Cost"
-          value={`$${estimates.cost.monthlyUSD}`}
-          range={`$${estimates.cost.range.min}-$${estimates.cost.range.max}`}
-          confidence={estimates.cost.confidence}
-        />
-      </div>
-      <div className="text-xs text-gray-500">
-        Based on {estimates.cost.breakdown.volumeGB.toFixed(1)}GB/month •{' '}
-        {estimates.cost.breakdown.samplingRate.toFixed(0)}% sampling
-      </div>
+    <div>
+      <EuiText size="xs"><strong>Resource Estimates</strong></EuiText>
+      <EuiSpacer size="xs" />
+      <EuiFlexGroup gutterSize="s" responsive={false}>
+        <EuiFlexItem>
+          <EstimateCard
+            label="Memory"
+            value={`${estimates.memory.estimated}MB`}
+            range={`${estimates.memory.range.min}-${estimates.memory.range.max}MB`}
+            confidence={estimates.memory.confidence}
+          />
+        </EuiFlexItem>
+        <EuiFlexItem>
+          <EstimateCard
+            label="Monthly Cost"
+            value={`$${estimates.cost.monthlyUSD}`}
+            range={`$${estimates.cost.range.min}-$${estimates.cost.range.max}`}
+            confidence={estimates.cost.confidence}
+          />
+        </EuiFlexItem>
+      </EuiFlexGroup>
+      <EuiSpacer size="xs" />
+      <EuiText size="xs" color="subdued">
+        <p>
+          Based on {estimates.cost.breakdown.volumeGB.toFixed(1)}GB/month &bull;{' '}
+          {estimates.cost.breakdown.samplingRate.toFixed(0)}% sampling
+        </p>
+      </EuiText>
     </div>
   );
 }
@@ -232,51 +251,52 @@ function EstimateCard({
   value: string;
   range: string;
   confidence: string;
-}) {
-  const confidenceColor: Record<string, string> = {
-    high: 'text-green-400',
-    medium: 'text-yellow-400',
-    low: 'text-red-400',
+}): React.ReactElement {
+  const confidenceColor: Record<string, 'success' | 'warning' | 'danger'> = {
+    high: 'success',
+    medium: 'warning',
+    low: 'danger',
   };
 
   return (
-    <div className="p-3 bg-gray-800/30 rounded-lg border border-gray-700">
-      <div className="text-xs text-gray-400">{label}</div>
-      <div className="text-lg font-medium text-gray-100 mt-1">{value}</div>
-      <div className="text-xs text-gray-500 mt-1">{range}</div>
-      <div className={`text-xs mt-1 ${confidenceColor[confidence]}`}>
-        {confidence} confidence
-      </div>
-    </div>
+    <EuiPanel paddingSize="s" hasBorder>
+      <EuiText size="xs" color="subdued"><span>{label}</span></EuiText>
+      <EuiText size="s"><strong>{value}</strong></EuiText>
+      <EuiText size="xs" color="subdued"><span>{range}</span></EuiText>
+      <EuiBadge color={confidenceColor[confidence] || 'default'}>
+        {confidence}
+      </EuiBadge>
+    </EuiPanel>
   );
 }
 
-function AssumptionsFooter({ assumptions }: { assumptions: Assumption[] }) {
+function AssumptionsFooter({ assumptions }: { assumptions: Assumption[] }): React.ReactElement {
   const [showAll, setShowAll] = useState(false);
 
   return (
-    <div className="pt-3 border-t border-gray-800">
-      <button
+    <div style={{ borderTop: '1px solid var(--euiColorLightShade)', paddingTop: 12 }}>
+      <EuiButtonEmpty
+        size="xs"
+        iconType="info"
         onClick={() => setShowAll(!showAll)}
-        className="text-xs text-gray-400 hover:text-gray-300 flex items-center gap-1 transition-colors"
+        flush="left"
       >
-        <Info className="w-3 h-3" />
-        <span>
-          {showAll ? 'Hide' : 'View'} calculation assumptions ({assumptions.length})
-        </span>
-      </button>
+        {showAll ? 'Hide' : 'View'} calculation assumptions ({assumptions.length})
+      </EuiButtonEmpty>
       {showAll && (
         <motion.div
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
           exit={{ opacity: 0, height: 0 }}
-          className="mt-2 space-y-1"
+          style={{ marginTop: 8 }}
         >
           {assumptions.map((a) => (
-            <div key={a.key} className="text-xs text-gray-500">
-              <span className="text-gray-400 font-medium">{a.key}:</span> {a.value}
-              {a.source && <span className="ml-1 text-gray-600">({a.source})</span>}
-            </div>
+            <EuiText key={a.key} size="xs" color="subdued">
+              <p style={{ marginBottom: 2 }}>
+                <strong>{a.key}:</strong> {a.value}
+                {a.source && <span style={{ marginLeft: 4 }}>({a.source})</span>}
+              </p>
+            </EuiText>
           ))}
         </motion.div>
       )}

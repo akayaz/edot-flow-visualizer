@@ -2,6 +2,7 @@
 
 import { memo, useMemo, useState } from 'react';
 import { BaseEdge, getBezierPath, Position } from '@xyflow/react';
+import { useEuiTheme } from '@elastic/eui';
 import { useFlowStore } from '../../store/flowStore';
 import { useTelemetryStore } from '../../store/telemetryStore';
 import type { FlowEdgeData, TelemetryType } from '../../types';
@@ -32,79 +33,94 @@ interface ParticleProps {
 
 /**
  * Particle component that animates along a path using CSS offset-path.
- * Uses native CSS animations instead of Framer Motion to avoid React warnings
- * about unrecognized offsetDistance prop on DOM elements.
+ * Uses a shared keyframe name per edge (not per particle) to reduce
+ * injected <style> tags. Particles differentiate via animation-delay.
  */
 const Particle = memo(({ path, color, delay, duration, size = 4, animationId }: ParticleProps) => {
-  const animationName = `particle-move-${animationId}`;
-  
   return (
-    <>
-      <style>
-        {`
-          @keyframes ${animationName} {
-            0% { offset-distance: 0%; }
-            100% { offset-distance: 100%; }
-          }
-        `}
-      </style>
-      <circle
-        r={size}
-        fill={color}
-        filter="url(#particle-glow)"
-        style={{
-          offsetPath: `path("${path}")`,
-          animation: `${animationName} ${duration}s linear ${delay}s infinite`,
-        }}
-      />
-    </>
+    <circle
+      r={size}
+      fill={color}
+      filter="url(#particle-glow)"
+      style={{
+        offsetPath: `path("${path}")`,
+        animation: `particle-move-${animationId} ${duration}s linear ${delay}s infinite`,
+      }}
+    />
   );
 });
 
 Particle.displayName = 'Particle';
 
-interface TelemetryBadgeProps {
-  type: TelemetryType;
+interface TelemetryPillProps {
+  types: TelemetryType[];
   x: number;
   y: number;
-  index: number;
 }
 
 /**
- * Telemetry type badge (T/M/L) displayed on edges
+ * Compact telemetry pill showing colored segments for active telemetry types.
+ * Replaces 3 separate circle badges with a single pill.
  */
-const TelemetryBadge = memo(({ type, x, y, index }: TelemetryBadgeProps) => {
-  const color = TELEMETRY_COLORS[type];
-  const label = TELEMETRY_LABELS[type];
-  const offsetX = (index - 1) * 18; // Space badges horizontally
-  
+const TelemetryPill = memo(({ types, x, y }: TelemetryPillProps) => {
+  if (types.length === 0) return null;
+
+  const segmentWidth = 14;
+  const pillHeight = 14;
+  const totalWidth = types.length * segmentWidth;
+  const pillX = x - totalWidth / 2;
+  const pillY = y - pillHeight / 2;
+  const radius = 4;
+
   return (
-    <g transform={`translate(${x + offsetX}, ${y})`}>
-      <circle
-        r={8}
-        fill="#1f2937"
-        stroke={color}
-        strokeWidth={1.5}
-        filter="url(#badge-glow)"
+    <g>
+      {/* Pill background */}
+      <rect
+        x={pillX - 2}
+        y={pillY - 1}
+        width={totalWidth + 4}
+        height={pillHeight + 2}
+        rx={radius + 1}
+        fill="var(--rf-node-bg, #1a1a2e)"
+        opacity={0.9}
       />
-      <text
-        textAnchor="middle"
-        dominantBaseline="central"
-        fontSize="9"
-        fontWeight="bold"
-        fill={color}
-        style={{ fontFamily: 'ui-monospace, monospace' }}
-      >
-        {label}
-      </text>
+      {/* Colored segments */}
+      {types.map((type, i) => {
+        const segX = pillX + i * segmentWidth;
+        return (
+          <g key={type}>
+            <rect
+              x={segX}
+              y={pillY}
+              width={segmentWidth}
+              height={pillHeight}
+              rx={i === 0 ? radius : i === types.length - 1 ? radius : 0}
+              fill={TELEMETRY_COLORS[type]}
+              opacity={0.85}
+            />
+            <text
+              x={segX + segmentWidth / 2}
+              y={pillY + pillHeight / 2}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fontSize="8"
+              fontWeight="bold"
+              fill="#fff"
+              style={{ fontFamily: 'ui-monospace, monospace' }}
+            >
+              {TELEMETRY_LABELS[type]}
+            </text>
+          </g>
+        );
+      })}
     </g>
   );
 });
 
-TelemetryBadge.displayName = 'TelemetryBadge';
+TelemetryPill.displayName = 'TelemetryPill';
 
 interface ProtocolIndicatorProps {
-  protocol: 'otlp-grpc' | 'otlp-http';
+  protocol: 'otlp-grpc' | 'otlp-http' | 'kafka';
   x: number;
   y: number;
   visible: boolean;
@@ -116,9 +132,9 @@ interface ProtocolIndicatorProps {
 const ProtocolIndicator = memo(({ protocol, x, y, visible }: ProtocolIndicatorProps) => {
   if (!visible) return null;
   
-  const label = protocol === 'otlp-grpc' ? 'gRPC' : 'HTTP';
-  const bgColor = protocol === 'otlp-grpc' ? '#1e3a5f' : '#1e3a3f';
-  const textColor = protocol === 'otlp-grpc' ? '#60a5fa' : '#34d399';
+  const label = protocol === 'otlp-grpc' ? 'gRPC' : protocol === 'kafka' ? 'Kafka' : 'HTTP';
+  const bgColor = 'var(--rf-node-bg)';
+  const textColor = protocol === 'otlp-grpc' ? '#60a5fa' : protocol === 'kafka' ? '#7B42BC' : '#34d399';
   
   return (
     <g transform={`translate(${x}, ${y})`}>
@@ -179,6 +195,11 @@ export const AnimatedEdge = memo(({
   const isAnimating = useFlowStore((state) => state.isAnimating);
   const { throughputStats, isDemoMode } = useTelemetryStore();
   const [isHovered, setIsHovered] = useState(false);
+  const { euiTheme } = useEuiTheme();
+
+  // Use EUI theme tokens for edge base colors (adapts to light/dark)
+  const edgeBaseColor = euiTheme.colors.mediumShade;
+  const edgeLightColor = euiTheme.colors.lightShade;
 
   // Get live throughput for source component
   const liveThroughput = throughputStats.get(source);
@@ -197,45 +218,46 @@ export const AnimatedEdge = memo(({
   const midX = (sourceX + targetX) / 2;
   const midY = (sourceY + targetY) / 2;
 
-  // Generate particles based on telemetry types and volume
+  // Generate particles — capped at 2 per telemetry type (6 max per edge).
+  // Speed and size modulated by throughput instead of spawning more particles.
   const particles = useMemo(() => {
     if (!data?.animated || !isAnimating) return [];
 
     const result: Omit<ParticleProps, 'animationId'>[] = [];
-    
-    // Use live throughput if demo mode is active, otherwise use static volume
-    const baseVolume = data.volume || 5;
-    const baseDuration = 2; // seconds
+    const MAX_PER_TYPE = 2;
+
+    // For kafka protocol edges, use purple-tinted particle colors
+    const isKafkaProtocol = data.protocol === 'kafka';
+    const KAFKA_TELEMETRY_COLORS: Record<TelemetryType, string> = {
+      traces: '#9B6FD6',
+      metrics: '#7B5FCC',
+      logs: '#8B62C6',
+    };
 
     data.telemetryTypes.forEach((type, typeIndex) => {
-      // Calculate particle count based on live data or static config
-      let particleCount: number;
       let particleSize = 4;
-      
+      let duration = 2; // seconds
+
       if (isDemoMode && liveThroughput) {
-        // Dynamic particle count based on live throughput
         const typeRate = liveThroughput[type] || 0;
-        particleCount = Math.min(Math.max(Math.ceil(typeRate / 5), 1), 8);
-        // Larger particles for higher throughput
-        particleSize = typeRate > 10 ? 5 : typeRate > 5 ? 4 : 3;
-      } else {
-        // Static particle count
-        particleCount = Math.ceil(baseVolume / 2);
+        // Modulate size and speed instead of count
+        particleSize = typeRate > 10 ? 6 : typeRate > 5 ? 5 : 3;
+        duration = typeRate > 10 ? 1.2 : typeRate > 5 ? 1.6 : 2.5;
       }
-      
-      for (let i = 0; i < particleCount; i++) {
+
+      for (let i = 0; i < MAX_PER_TYPE; i++) {
         result.push({
           path: edgePath,
-          color: TELEMETRY_COLORS[type],
-          delay: (typeIndex * 0.3) + (i * (baseDuration / particleCount)),
-          duration: baseDuration,
+          color: isKafkaProtocol ? KAFKA_TELEMETRY_COLORS[type] : TELEMETRY_COLORS[type],
+          delay: (typeIndex * 0.4) + (i * (duration / MAX_PER_TYPE)),
+          duration,
           size: particleSize,
         });
       }
     });
 
     return result;
-  }, [edgePath, data?.telemetryTypes, data?.volume, data?.animated, isAnimating, isDemoMode, liveThroughput]);
+  }, [edgePath, data?.telemetryTypes, data?.animated, data?.protocol, isAnimating, isDemoMode, liveThroughput]);
 
   // Edge glow intensity based on activity
   const glowIntensity = isDemoMode && liveThroughput 
@@ -254,6 +276,11 @@ export const AnimatedEdge = memo(({
 
   return (
     <>
+      {/* Shared keyframe for all particles on this edge */}
+      <style>
+        {`@keyframes particle-move-${id} { 0% { offset-distance: 0%; } 100% { offset-distance: 100%; } }`}
+      </style>
+
       {/* SVG Defs for glow filter */}
       <defs>
         <filter id="particle-glow" x="-50%" y="-50%" width="200%" height="200%">
@@ -263,21 +290,12 @@ export const AnimatedEdge = memo(({
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
-        
-        {/* Badge glow filter */}
-        <filter id="badge-glow" x="-100%" y="-100%" width="300%" height="300%">
-          <feGaussianBlur stdDeviation="1.5" result="badgeBlur" />
-          <feMerge>
-            <feMergeNode in="badgeBlur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-        
+
         {/* Gradient for the edge line */}
         <linearGradient id={`edge-gradient-${id}`} x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor={hasWarning ? WARNING_COLOR : "#4b5563"} stopOpacity={0.5 + glowIntensity * 0.5} />
-          <stop offset="50%" stopColor={hasWarning ? WARNING_COLOR : "#6b7280"} stopOpacity={0.6 + glowIntensity * 0.4} />
-          <stop offset="100%" stopColor={hasWarning ? WARNING_COLOR : "#4b5563"} stopOpacity={0.5 + glowIntensity * 0.5} />
+          <stop offset="0%" stopColor={hasWarning ? WARNING_COLOR : protocol === 'kafka' ? '#7B42BC' : edgeBaseColor} stopOpacity={0.5 + glowIntensity * 0.5} />
+          <stop offset="50%" stopColor={hasWarning ? WARNING_COLOR : protocol === 'kafka' ? '#9B62DC' : edgeLightColor} stopOpacity={0.6 + glowIntensity * 0.4} />
+          <stop offset="100%" stopColor={hasWarning ? WARNING_COLOR : protocol === 'kafka' ? '#7B42BC' : edgeBaseColor} stopOpacity={0.5 + glowIntensity * 0.5} />
         </linearGradient>
         
         {/* Warning glow filter */}
@@ -321,19 +339,13 @@ export const AnimatedEdge = memo(({
         />
       )}
 
-      {/* Telemetry type badges */}
+      {/* Compact telemetry pill */}
       {telemetryTypes.length > 0 && !hasWarning && (
-        <g transform={`translate(0, -20)`}>
-          {telemetryTypes.map((type, index) => (
-            <TelemetryBadge
-              key={`${id}-badge-${type}`}
-              type={type}
-              x={midX}
-              y={midY}
-              index={index}
-            />
-          ))}
-        </g>
+        <TelemetryPill
+          types={telemetryTypes}
+          x={midX}
+          y={midY - 16}
+        />
       )}
 
       {/* Protocol indicator on hover */}
@@ -352,7 +364,7 @@ export const AnimatedEdge = memo(({
             cx={midX}
             cy={midY}
             r={10}
-            fill="#1f2937"
+            fill="var(--rf-node-bg, #ffffff)"
             stroke={WARNING_COLOR}
             strokeWidth={2}
           />
@@ -372,12 +384,12 @@ export const AnimatedEdge = memo(({
         </g>
       )}
 
-      {/* Animated particles */}
+      {/* Animated particles (shared keyframe per edge) */}
       {particles.map((particle, index) => (
-        <Particle 
-          key={`${id}-particle-${index}`} 
-          {...particle} 
-          animationId={`${id}-${index}`}
+        <Particle
+          key={`${id}-particle-${index}`}
+          {...particle}
+          animationId={id}
         />
       ))}
 

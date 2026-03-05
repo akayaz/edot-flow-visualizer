@@ -1,6 +1,7 @@
 import { EDOTSDKNode } from './EDOTSDKNode';
 import { CollectorNode } from './CollectorNode';
 import { ElasticNode } from './ElasticNode';
+import { KafkaNode } from './KafkaNode';
 import { HostNode } from './HostNode';
 import { DockerNode } from './DockerNode';
 import { K8sNamespaceNode } from './K8sNamespaceNode';
@@ -11,6 +12,7 @@ export const nodeTypes = {
   edotSdk: EDOTSDKNode,
   collector: CollectorNode,
   elasticApm: ElasticNode,
+  kafkaBroker: KafkaNode,
   infrastructureHost: HostNode,
   infrastructureDocker: DockerNode,
   infrastructureK8sNamespace: K8sNamespaceNode,
@@ -22,6 +24,7 @@ export {
   EDOTSDKNode,
   CollectorNode,
   ElasticNode,
+  KafkaNode,
   HostNode,
   DockerNode,
   K8sNamespaceNode,

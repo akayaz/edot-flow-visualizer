@@ -2,79 +2,72 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Import Google Fonts for enhanced typography */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+/* ==========================================
+   REACT FLOW CSS VARIABLES
+   Light and Dark mode for canvas zone only.
+   EUI handles all chrome theming via EuiProvider.
+   ========================================== */
 
 :root {
-  --background: #030712;
-  --foreground: #f9fafb;
-  
-  /* EUI-inspired color tokens */
-  --eui-primary: #0077CC;
-  --eui-accent: #00BFB3;
-  --eui-success: #7DE2B8;
-  --eui-warning: #FEC514;
-  --eui-danger: #F66;
-  --eui-text: #DFE5EF;
-  --eui-subtext: #98A2B3;
-  --eui-bg-dark: #1D1E24;
-  --eui-bg-darker: #141519;
-  --eui-border: #343741;
+  /* React Flow specific */
+  --rf-background: #F6F9FC;
+  --rf-node-bg: #ffffff;
+  --rf-edge-stroke: #94a3b8;
+  --rf-minimap-bg: #f1f5f9;
+  --rf-controls-bg: #ffffff;
+  --rf-handle-border: #e2e8f0;
+  --rf-pattern-dot: rgba(6, 182, 212, 0.06);
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+.dark {
+  /* React Flow specific */
+  --rf-background: #07101F;
+  --rf-node-bg: #1f2937;
+  --rf-edge-stroke: #4b5563;
+  --rf-minimap-bg: #111827;
+  --rf-controls-bg: #1f2937;
+  --rf-handle-border: #1f2937;
+  --rf-pattern-dot: rgba(6, 182, 212, 0.03);
 }
 
-/* Typography enhancements */
-.text-title {
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-}
+/* ==========================================
+   REACT FLOW OVERRIDES — Canvas Zone
+   These styles target @xyflow/react internals.
+   ========================================== */
 
-.section-label {
-  @apply text-xs font-semibold uppercase;
-  letter-spacing: 0.08em;
-}
-
-/* React Flow customizations */
 .react-flow__background {
-  background-color: #030712 !important;
+  background-color: var(--rf-background) !important;
+  transition: background-color 0.3s ease;
 }
 
 .react-flow__minimap {
-  background-color: #111827 !important;
+  background-color: var(--rf-minimap-bg) !important;
   border-radius: 8px;
-  border: 1px solid #374151;
+  border: 1px solid var(--rf-handle-border);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .react-flow__controls {
-  background-color: #1f2937 !important;
+  background-color: var(--rf-controls-bg) !important;
   border-radius: 8px;
-  border: 1px solid #374151;
+  border: 1px solid var(--rf-handle-border);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .react-flow__controls-button {
-  background-color: #1f2937 !important;
-  border-color: #374151 !important;
-  color: #9ca3af !important;
+  background-color: var(--rf-controls-bg) !important;
+  border-color: var(--rf-handle-border) !important;
+  transition: all 0.2s ease;
 }
 
-.react-flow__controls-button:hover {
-  background-color: #374151 !important;
-  color: #f9fafb !important;
-}
-
-/* Edge paths with better visibility */
+/* Edge paths */
 .react-flow__edge-path {
-  stroke: #4b5563;
+  stroke: var(--rf-edge-stroke);
   stroke-width: 2;
+  transition: stroke 0.3s ease;
 }
 
-/* Ensure edge layer renders above nodes */
+/* Edge layer ordering */
 .react-flow__edges {
   pointer-events: none;
 }
@@ -83,18 +76,17 @@ body {
   pointer-events: all;
 }
 
-/* SVG edges should have higher z-index when elevated */
 .react-flow__edge.selected,
 .react-flow__edge:hover {
   z-index: 1000 !important;
 }
 
-/* Make animated particles more visible */
+/* Particle glow on edges */
 .react-flow__edge circle {
   filter: drop-shadow(0 0 4px currentColor) drop-shadow(0 0 8px currentColor);
 }
 
-/* Ensure infrastructure nodes have lower z-index so edges render on top */
+/* Infrastructure nodes: lower z-index so edges render on top */
 .react-flow__node:has(.infrastructure-node) {
   z-index: 0 !important;
 }
@@ -107,7 +99,7 @@ body {
 .react-flow__handle {
   width: 12px !important;
   height: 12px !important;
-  border: 2px solid #1f2937 !important;
+  border: 2px solid var(--rf-handle-border) !important;
   transition: all 0.2s ease;
 }
 
@@ -129,44 +121,16 @@ body {
   filter: drop-shadow(0 0 4px currentColor) drop-shadow(0 0 8px currentColor);
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: #1f2937;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #4b5563;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #6b7280;
-}
-
-/* Glass morphism effect */
-.glass {
-  background: rgba(17, 24, 39, 0.8);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(75, 85, 99, 0.5);
-}
+/* ==========================================
+   CANVAS ZONE KEYFRAMES & ANIMATIONS
+   Used by React Flow nodes and edges only.
+   ========================================== */
 
 /* Elastic gradient animation */
 @keyframes elastic-gradient {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 .animate-elastic-gradient {
@@ -178,115 +142,6 @@ body {
 /* Node selection ring */
 .node-selected {
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5), 0 0 20px rgba(59, 130, 246, 0.3);
-}
-
-/* Code block styling for YAML preview */
-.yaml-preview {
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-/* ==========================================
-   UI REFINEMENTS - Phase 2+
-   ========================================== */
-
-/* Gradient border utility for panels */
-.panel-border-glow {
-  position: relative;
-  border: 1px solid transparent;
-  background: 
-    linear-gradient(#111827, #111827) padding-box,
-    linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(168, 85, 247, 0.1)) border-box;
-}
-
-.panel-border-glow::before {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  background: linear-gradient(135deg, rgba(6, 182, 212, 0.15), rgba(168, 85, 247, 0.08));
-  z-index: -1;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.panel-border-glow:hover::before {
-  opacity: 1;
-}
-
-/* Gradient divider */
-.divider-gradient {
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(75, 85, 99, 0.8), transparent);
-}
-
-.divider-vertical-gradient {
-  width: 1px;
-  background: linear-gradient(180deg, transparent, rgba(75, 85, 99, 0.6), transparent);
-}
-
-/* Multi-layer shadow system */
-.shadow-elevated {
-  box-shadow: 
-    0 4px 6px -1px rgba(0, 0, 0, 0.2),
-    0 10px 15px -3px rgba(0, 0, 0, 0.3),
-    0 20px 25px -5px rgba(0, 0, 0, 0.15);
-}
-
-.shadow-floating {
-  box-shadow: 
-    0 2px 4px rgba(0, 0, 0, 0.2),
-    0 4px 8px rgba(0, 0, 0, 0.15),
-    0 8px 16px rgba(0, 0, 0, 0.1);
-}
-
-/* Enhanced focus states */
-.input-focus-glow {
-  @apply focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20;
-  transition: box-shadow 0.15s ease, border-color 0.15s ease;
-}
-
-.input-focus-glow:focus {
-  box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.15), 0 0 12px rgba(6, 182, 212, 0.1);
-}
-
-/* Scroll area with fade indicators */
-.scroll-fade-top::before,
-.scroll-fade-bottom::after {
-  content: '';
-  position: sticky;
-  display: block;
-  height: 20px;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.scroll-fade-top::before {
-  top: 0;
-  background: linear-gradient(to bottom, #111827 0%, transparent 100%);
-}
-
-.scroll-fade-bottom::after {
-  bottom: 0;
-  background: linear-gradient(to top, #111827 0%, transparent 100%);
-}
-
-/* Control panel active indicator */
-.control-btn-active {
-  position: relative;
-}
-
-.control-btn-active::after {
-  content: '';
-  position: absolute;
-  bottom: -2px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 12px;
-  height: 2px;
-  background: linear-gradient(90deg, #06b6d4, #a855f7);
-  border-radius: 1px;
 }
 
 /* Edge shimmer animation */
@@ -302,14 +157,8 @@ body {
 
 /* Particle trail effect */
 @keyframes particle-trail {
-  0% { 
-    opacity: 1;
-    transform: scale(1);
-  }
-  100% { 
-    opacity: 0;
-    transform: scale(0.5);
-  }
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.5); }
 }
 
 .particle-trail::after {
@@ -323,12 +172,8 @@ body {
 
 /* Node breathing animation */
 @keyframes node-breathe {
-  0%, 100% { 
-    box-shadow: 0 0 20px var(--glow-color, rgba(6, 182, 212, 0.2));
-  }
-  50% { 
-    box-shadow: 0 0 30px var(--glow-color, rgba(6, 182, 212, 0.3));
-  }
+  0%, 100% { box-shadow: 0 0 20px var(--glow-color, rgba(6, 182, 212, 0.2)); }
+  50% { box-shadow: 0 0 30px var(--glow-color, rgba(6, 182, 212, 0.3)); }
 }
 
 .node-breathing {
@@ -337,48 +182,24 @@ body {
 
 /* Empty state pattern background */
 .pattern-dots {
-  background-image: radial-gradient(circle at 1px 1px, rgba(6, 182, 212, 0.03) 1px, transparent 0);
+  background-image: radial-gradient(circle at 1px 1px, var(--rf-pattern-dot) 1px, transparent 0);
   background-size: 24px 24px;
 }
 
 /* Badge pulse animation */
 @keyframes badge-pulse {
-  0%, 100% { 
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% { 
-    opacity: 0.8;
-    transform: scale(1.05);
-  }
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.05); }
 }
 
 .badge-pulse {
   animation: badge-pulse 2s ease-in-out infinite;
 }
 
-/* Staggered animation helper */
-.stagger-animation > * {
-  animation-fill-mode: both;
-}
-
-.stagger-animation > *:nth-child(1) { animation-delay: 0ms; }
-.stagger-animation > *:nth-child(2) { animation-delay: 30ms; }
-.stagger-animation > *:nth-child(3) { animation-delay: 60ms; }
-.stagger-animation > *:nth-child(4) { animation-delay: 90ms; }
-.stagger-animation > *:nth-child(5) { animation-delay: 120ms; }
-.stagger-animation > *:nth-child(6) { animation-delay: 150ms; }
-.stagger-animation > *:nth-child(7) { animation-delay: 180ms; }
-.stagger-animation > *:nth-child(8) { animation-delay: 210ms; }
-
 /* Validation badge pulse for errors */
 @keyframes error-pulse {
-  0%, 100% { 
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
-  }
-  50% { 
-    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0);
-  }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  50% { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0); }
 }
 
 .error-pulse {
@@ -387,19 +208,18 @@ body {
 
 /* Celebration checkmark animation */
 @keyframes checkmark-celebrate {
-  0% { 
-    transform: scale(0.8);
-    opacity: 0;
-  }
-  50% { 
-    transform: scale(1.2);
-  }
-  100% { 
-    transform: scale(1);
-    opacity: 1;
-  }
+  0% { transform: scale(0.8); opacity: 0; }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 .checkmark-celebrate {
   animation: checkmark-celebrate 0.4s ease-out;
+}
+
+/* YAML code block styling (used inside EuiCodeBlock overrides if needed) */
+.yaml-preview {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  line-height: 1.5;
 }

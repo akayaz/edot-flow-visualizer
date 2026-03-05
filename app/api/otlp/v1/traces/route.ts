@@ -3,8 +3,7 @@ import { telemetryBuffer, parseOTLPTraces } from '@/lib/telemetry/processor';
 import { gunzipSync } from 'zlib';
 
 // Import the protobuf root from otlp-transformer
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const protobufRoot = require('@opentelemetry/otlp-transformer/build/src/generated/root');
+const protobufRoot = require('@opentelemetry/otlp-transformer/build/src/generated/root'); // eslint-disable-line
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';

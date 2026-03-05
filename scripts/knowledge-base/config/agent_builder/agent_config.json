@@ -1,0 +1,19 @@
+{
+  "name": "EDOT Assistant",
+  "description": "An AI assistant specialized in Elastic Distributions of OpenTelemetry (EDOT) and the OpenTelemetry project. Helps users design, implement, and troubleshoot OTel architectures using EDOT components.",
+  "system_prompt_file": "system_prompt.md",
+  "model": "default",
+  "tools": [
+    "search_edot_docs",
+    "search_otel_docs",
+    "search_examples",
+    "search_blogs",
+    "get_component_info",
+    "check_latest_version"
+  ],
+  "settings": {
+    "temperature": 0.3,
+    "max_tokens": 4096,
+    "citation_mode": "always"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "description": "EDOT Assistant document processing pipeline — metadata enrichment and freshness scoring",
+  "processors": [
+    {
+      "set": {
+        "description": "Set last_crawled timestamp",
+        "field": "last_crawled",
+        "value": "{{{_ingest.timestamp}}}"
+      }
+    },
+    {
+      "set": {
+        "description": "Default source_type if not provided",
+        "field": "source_type",
+        "value": "web",
+        "override": false
+      }
+    },
+    {
+      "set": {
+        "description": "Default freshness_score to 1.0 (freshly ingested)",
+        "field": "freshness_score",
+        "value": 1.0,
+        "override": true
+      }
+    },
+    {
+      "script": {
+        "description": "Normalize tags to lowercase",
+        "source": "if (ctx.tags != null && ctx.tags instanceof List) { ctx.tags = ctx.tags.stream().map(t -> t.toLowerCase()).collect(Collectors.toList()); }"
+      }
+    },
+    {
+      "lowercase": {
+        "field": "content_type",
+        "ignore_missing": true
+      }
+    },
+    {
+      "lowercase": {
+        "field": "language_sdk",
+        "ignore_missing": true
+      }
+    }
+  ]
+}

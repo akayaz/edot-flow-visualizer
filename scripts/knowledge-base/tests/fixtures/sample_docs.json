@@ -1,0 +1,50 @@
+[
+  {
+    "title": "EDOT Collector Configuration Guide",
+    "body": "# EDOT Collector Configuration\n\nThe EDOT Collector supports both Agent and Gateway deployment modes.\n\n## Receivers\n\nThe OTLP receiver accepts traces, metrics, and logs via gRPC (port 4317) and HTTP (port 4318).\n\n```yaml\nreceivers:\n  otlp:\n    protocols:\n      grpc:\n        endpoint: \"0.0.0.0:4317\"\n      http:\n        endpoint: \"0.0.0.0:4318\"\n```\n\n## Processors\n\nAlways use memory_limiter as the first processor in any pipeline.\n\n```yaml\nprocessors:\n  memory_limiter:\n    check_interval: 1s\n    limit_mib: 1000\n  batch:\n    send_batch_size: 10000\n    timeout: 10s\n```",
+    "url": "https://www.elastic.co/docs/reference/edot-collector/configuration",
+    "source_type": "web",
+    "source_tier": "tier_1",
+    "content_type": "documentation",
+    "tags": ["edot", "collector", "configuration"]
+  },
+  {
+    "title": "EDOT Python SDK Quick Start",
+    "body": "# EDOT Python SDK\n\nInstall the EDOT Python SDK:\n\n```bash\npip install elastic-opentelemetry\n```\n\nAuto-instrumentation:\n\n```bash\nopentelemetry-instrument python your_app.py\n```\n\nThe EDOT Python SDK includes pre-configured exporters for Elastic APM.",
+    "url": "https://www.elastic.co/docs/reference/opentelemetry/edot-sdks/python",
+    "source_type": "web",
+    "source_tier": "tier_1",
+    "content_type": "documentation",
+    "language_sdk": "python",
+    "tags": ["edot", "sdk", "python"]
+  },
+  {
+    "title": "OpenTelemetry Collector Architecture",
+    "body": "# Collector Architecture\n\nThe OpenTelemetry Collector has three main components:\n\n1. **Receivers** - Accept telemetry data from sources\n2. **Processors** - Transform and enrich data\n3. **Exporters** - Send data to backends\n\nData flows through pipelines: receivers -> processors -> exporters.",
+    "url": "https://opentelemetry.io/docs/collector/architecture",
+    "source_type": "web",
+    "source_tier": "tier_3",
+    "content_type": "documentation",
+    "tags": ["otel", "collector", "architecture"]
+  },
+  {
+    "title": "elastic/opentelemetry v1.2.0 Release",
+    "body": "# v1.2.0\n\nRelease highlights:\n- Added support for new processors\n- Updated to upstream OTel Collector v0.95.0\n- Bug fixes for memory limiter",
+    "url": "https://github.com/elastic/opentelemetry/releases/tag/v1.2.0",
+    "source_type": "github",
+    "source_tier": "tier_2",
+    "content_type": "release",
+    "repo": "elastic/opentelemetry",
+    "release_tag": "v1.2.0",
+    "tags": ["edot", "release"]
+  },
+  {
+    "title": "Getting Started with EDOT on Kubernetes",
+    "body": "# EDOT on Kubernetes\n\nDeploy the EDOT Collector as a DaemonSet for per-node collection, or as a Deployment for gateway mode.\n\n## DaemonSet (Agent Mode)\n\nCollects host metrics and local telemetry on each node.\n\n## Deployment (Gateway Mode)\n\nCentralized processing with tail sampling and load balancing.",
+    "url": "https://www.elastic.co/blog/getting-started-edot-kubernetes",
+    "source_type": "web",
+    "source_tier": "tier_4",
+    "content_type": "blog",
+    "tags": ["edot", "kubernetes", "blog"]
+  }
+]

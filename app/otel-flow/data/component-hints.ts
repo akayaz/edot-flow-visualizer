@@ -102,6 +102,26 @@ export const COMPONENT_HINTS: Record<EDOTComponentType, ComponentHint> = {
     telemetryTypes: ['traces', 'metrics', 'logs'],
   },
 
+  'kafka-broker': {
+    title: 'Kafka Broker',
+    description: 'Apache Kafka message broker for durable telemetry buffering between collector tiers.',
+    purpose: 'Provides HA ingest buffering between upstream Collector Agents and downstream Collector Gateways using kafkaexporter and kafkareceiver.',
+    bestPractices: [
+      'Use kafkaexporter on upstream Collectors (Agent)',
+      'Use kafkareceiver on downstream Collectors (Gateway)',
+      'Only otlp_proto and otlp_json encodings are supported in EDOT',
+      'Pre-create topics or enable auto-creation',
+      'Use snappy compression for best throughput/CPU balance',
+    ],
+    deploymentNotes: {
+      'serverless': 'Kafka buffering is not typically used with Serverless deployments.',
+      'ech': 'Kafka buffering is not typically used with Elastic Cloud Hosted.',
+      'self-managed': 'Recommended for HA ingest: Agent → Kafka → Gateway → Elasticsearch.',
+    },
+    docsUrl: 'https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/kafkaexporter',
+    telemetryTypes: ['traces', 'metrics', 'logs'],
+  },
+
   'infrastructure-host': {
     title: 'Host/VM',
     description: 'A physical or virtual machine running your applications.',
