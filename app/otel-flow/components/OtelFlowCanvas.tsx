@@ -9,6 +9,7 @@ import {
   type Node,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { useSearchParams } from 'next/navigation';
 import { nanoid } from 'nanoid';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, X } from 'lucide-react';
@@ -31,6 +32,11 @@ import { ZoomControls } from './panels/ZoomControls';
 import { useTelemetryStream } from '../lib/useTelemetryStream';
 import { useEuiTheme } from '@elastic/eui';
 import { useThemeStore } from '../store/themeStore';
+import {
+  copyDiagramToClipboard,
+  downloadDiagram,
+  type DiagramExportOptions,
+} from '../lib/diagram-export';
 import type { PaletteItem, EDOTNodeData } from '../types';
 
 // Infrastructure node types that can be parents
@@ -212,6 +218,7 @@ interface DropRejection {
 function FlowCanvas() {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition, getNodes } = useReactFlow();
+  const searchParams = useSearchParams();
   const { resolvedTheme } = useThemeStore();
   const { euiTheme } = useEuiTheme();
 
@@ -249,10 +256,60 @@ function FlowCanvas() {
     isDetectionPanelOpen,
     openDetectionPanel,
     closeDetectionPanel,
+    undo,
   } = useFlowStore();
 
+  useEffect(() => {
+    const panel = searchParams.get('panel');
+    const method = searchParams.get('method');
+    const quickstart = searchParams.get('quickstart');
+
+    if (panel === 'detection') {
+      const detectionMethod = method === 'yaml' || method === 'traffic' ? method : undefined;
+      openDetectionPanel(detectionMethod);
+      return;
+    }
+
+    if (quickstart === 'true') {
+      setIsQuickStartOpen(true);
+    }
+  }, [openDetectionPanel, searchParams, setIsQuickStartOpen]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.defaultPrevented) {
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+      const isEditableTarget =
+        !!target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable);
+
+      if (isEditableTarget) {
+        return;
+      }
+
+      const isUndoShortcut =
+        (event.metaKey || event.ctrlKey) &&
+        event.key.toLowerCase() === 'z' &&
+        !event.shiftKey;
+
+      if (isUndoShortcut) {
+        event.preventDefault();
+        undo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo]);
+
   const { validateTopology } = useValidationStore();
-  const { calculate: calculateHealthScore, autoCalculate } = useHealthScoreStore();
+  const { calculate: calculateHealthScore, clear: clearHealthScore, autoCalculate } = useHealthScoreStore();
 
   // Trigger validation whenever nodes, edges, or deployment model changes
   useEffect(() => {
@@ -267,15 +324,22 @@ function FlowCanvas() {
 
   // Trigger health score calculation whenever topology changes
   useEffect(() => {
-    if (autoCalculate) {
-      calculateHealthScore({
-        nodes,
-        edges,
-        scenario,
-        deploymentModel,
-      });
+    if (!autoCalculate) {
+      return;
     }
-  }, [nodes, edges, scenario, deploymentModel, autoCalculate, calculateHealthScore]);
+
+    if (nodes.length === 0) {
+      clearHealthScore();
+      return;
+    }
+
+    calculateHealthScore({
+      nodes,
+      edges,
+      scenario,
+      deploymentModel,
+    });
+  }, [nodes, edges, scenario, deploymentModel, autoCalculate, calculateHealthScore, clearHealthScore]);
 
   // Handle node click
   const onNodeClick = useCallback(
@@ -452,6 +516,35 @@ function FlowCanvas() {
     [screenToFlowPosition, addNode, getNodes]
   );
 
+  const getViewportElement = useCallback((): HTMLElement | null => {
+    if (!reactFlowWrapper.current) {
+      return null;
+    }
+    return reactFlowWrapper.current.querySelector('.react-flow__viewport');
+  }, []);
+
+  const handleDownloadDiagram = useCallback(
+    async (options: DiagramExportOptions): Promise<void> => {
+      const viewport = getViewportElement();
+      if (!viewport) {
+        throw new Error('Diagram export failed: viewport not available.');
+      }
+      await downloadDiagram(viewport, nodes, options);
+    },
+    [getViewportElement, nodes]
+  );
+
+  const handleCopyDiagram = useCallback(
+    async (options?: Omit<DiagramExportOptions, 'format'>): Promise<void> => {
+      const viewport = getViewportElement();
+      if (!viewport) {
+        throw new Error('Diagram export failed: viewport not available.');
+      }
+      await copyDiagramToClipboard(viewport, nodes, options);
+    },
+    [getViewportElement, nodes]
+  );
+
   return (
     <div ref={reactFlowWrapper} className="w-full h-screen" style={{ backgroundColor: euiTheme.colors.backgroundBaseSubdued }}>
       <ReactFlow
@@ -516,7 +609,11 @@ function FlowCanvas() {
         onToggleDemo={toggleDemo}
         onOpenDetection={openDetectionPanel}
       />
-      <ConfigExportPanel />
+      <ConfigExportPanel
+        getViewportElement={getViewportElement}
+        onDownloadDiagram={handleDownloadDiagram}
+        onCopyDiagram={handleCopyDiagram}
+      />
       <NodeConfigPanel />
       <Legend />
       <StatusPanel />

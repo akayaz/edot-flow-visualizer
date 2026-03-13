@@ -261,6 +261,7 @@ export const ComponentPalette = memo((): React.ReactElement => {
       nodes.length > 0
         ? nodes.reduce((sum, n) => sum + n.position.y, 0) / nodes.length
         : 200;
+    const yStagger = nodes.length % 2 === 0 ? -30 : 30;
 
     const nodeType =
       item.type === 'edot-sdk'
@@ -288,7 +289,7 @@ export const ComponentPalette = memo((): React.ReactElement => {
     const newNode = {
       id: nanoid(),
       type: nodeType,
-      position: { x: maxX + 250, y: avgY },
+      position: { x: maxX + 350, y: avgY + yStagger },
       data: {
         label: language
           ? `${SDK_LANGUAGE_CONFIG[language].label} App`

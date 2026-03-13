@@ -44,6 +44,7 @@ interface FlowStore {
   initialDetectionMethod: 'yaml' | 'traffic' | null; // For deep-linking from homepage
   resetKey: number; // Used to force React Flow re-mount
   clearSnapshot: ClearSnapshot | null; // One-level undo for clear canvas
+  undoStack: ClearSnapshot[]; // General undo stack for destructive topology actions
 
   // Actions - Deployment
   setDeploymentModel: (model: DeploymentModel) => void;
@@ -81,11 +82,32 @@ interface FlowStore {
   // Actions - Reset
   resetToOriginal: () => void;
   undoClear: () => void;
+  undo: () => void;
 }
 
 export const useFlowStore = create<FlowStore>()(
   persist(
-    (set, get) => ({
+    (set, get) => {
+      const pushUndoSnapshot = (): void => {
+        const state = get();
+
+        // Avoid storing no-op snapshots when topology is already empty.
+        if (state.nodes.length === 0 && state.edges.length === 0) {
+          return;
+        }
+
+        const snapshot: ClearSnapshot = {
+          nodes: state.nodes,
+          edges: state.edges,
+          scenario: state.scenario,
+        };
+
+        set({
+          undoStack: [...state.undoStack, snapshot].slice(-20),
+        });
+      };
+
+      return ({
       // Initial state - start with empty canvas and serverless deployment
       deploymentModel: 'serverless',
       deploymentTarget: null,
@@ -101,6 +123,7 @@ export const useFlowStore = create<FlowStore>()(
       initialDetectionMethod: null,
       resetKey: 0,
       clearSnapshot: null,
+      undoStack: [],
 
       // Set deployment target (docker or kubernetes)
       setDeploymentTarget: (target) => set({ deploymentTarget: target }),
@@ -255,9 +278,14 @@ export const useFlowStore = create<FlowStore>()(
 
       // Handle node position changes, selection, etc.
       onNodesChange: (changes) => {
+        const hasNodeRemoval = changes.some((c) => c.type === 'remove');
         const hasSignificantChange = changes.some(
           (c) => c.type === 'add' || c.type === 'remove'
         );
+
+        if (hasNodeRemoval) {
+          pushUndoSnapshot();
+        }
 
         set({
           nodes: applyNodeChanges(changes, get().nodes),
@@ -277,6 +305,12 @@ export const useFlowStore = create<FlowStore>()(
 
       // Handle edge changes
       onEdgesChange: (changes) => {
+        const hasEdgeRemoval = changes.some((c) => c.type === 'remove');
+
+        if (hasEdgeRemoval) {
+          pushUndoSnapshot();
+        }
+
         set({
           edges: applyEdgeChanges(changes, get().edges),
           scenario: 'custom',
@@ -467,7 +501,8 @@ export const useFlowStore = create<FlowStore>()(
           isDetectionPanelOpen: true,
           isConfigPanelOpen: false,
           selectedNodeId: null,
-          ...(method && { initialDetectionMethod: method }),
+          // Always reset to method selection unless explicitly deep-linking.
+          initialDetectionMethod: method ?? null,
         });
       },
       closeDetectionPanel: () => set({ isDetectionPanelOpen: false, initialDetectionMethod: null }),
@@ -483,6 +518,10 @@ export const useFlowStore = create<FlowStore>()(
           ? { nodes: state.nodes, edges: state.edges, scenario: state.scenario }
           : null;
 
+        if (snapshot) {
+          pushUndoSnapshot();
+        }
+
         set({
           scenario: 'custom',
           nodes: [],
@@ -494,12 +533,8 @@ export const useFlowStore = create<FlowStore>()(
           clearSnapshot: snapshot,
         });
 
-        // Trigger health score recalculation for empty state
-        const { deploymentModel } = get();
-        const { autoCalculate, calculate } = useHealthScoreStore.getState();
-        if (autoCalculate) {
-          calculate({ nodes: [], edges: [], deploymentModel, scenario: 'custom' });
-        }
+        // Clear health score so empty-state guidance is shown in Health panel.
+        useHealthScoreStore.getState().clear();
       },
 
       // Undo the last clear — restores the snapshotted topology
@@ -527,7 +562,36 @@ export const useFlowStore = create<FlowStore>()(
           });
         }
       },
-    }),
+      undo: () => {
+        const { undoStack } = get();
+        if (undoStack.length === 0) return;
+
+        const previousSnapshot = undoStack[undoStack.length - 1];
+
+        set({
+          nodes: previousSnapshot.nodes,
+          edges: previousSnapshot.edges,
+          scenario: previousSnapshot.scenario,
+          selectedNodeId: null,
+          isConfigPanelOpen: false,
+          isDetectionPanelOpen: false,
+          undoStack: undoStack.slice(0, -1),
+          resetKey: get().resetKey + 1,
+        });
+
+        const { deploymentModel } = get();
+        const { autoCalculate, calculate } = useHealthScoreStore.getState();
+        if (autoCalculate) {
+          calculate({
+            nodes: previousSnapshot.nodes,
+            edges: previousSnapshot.edges,
+            deploymentModel,
+            scenario: previousSnapshot.scenario,
+          });
+        }
+      },
+    });
+    },
     {
       name: 'edot-flow-storage',
       // Only persist certain fields
