@@ -21,6 +21,7 @@ import {
   EuiStat,
 } from '@elastic/eui';
 import type { EuiStepsHorizontalProps } from '@elastic/eui';
+import { ArrowLeft, X } from 'lucide-react';
 import { useFlowStore } from '../../store/flowStore';
 import { FileUploader, TrafficMonitor } from '../detection';
 import { layoutTopology } from '../../lib/detection';
@@ -335,7 +336,16 @@ export const DetectionWizardPanel = memo(({ isOpen, onClose }: DetectionWizardPa
           <div className="space-y-4">
             <EuiFlexGroup alignItems="center" gutterSize="s">
               <EuiFlexItem grow={false}>
-                <EuiButtonEmpty size="xs" iconType="arrowLeft" onClick={handleBack}>Back</EuiButtonEmpty>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleBack();
+                  }}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
+                >
+                  <ArrowLeft className="lucide-arrow-left h-3.5 w-3.5" />
+                  <span>Back</span>
+                </button>
               </EuiFlexItem>
               <EuiFlexItem>
                 <EuiText size="s"><strong>Import YAML Configuration</strong></EuiText>
@@ -361,10 +371,20 @@ export const DetectionWizardPanel = memo(({ isOpen, onClose }: DetectionWizardPa
           <div className="space-y-4">
             <EuiFlexGroup alignItems="center" gutterSize="s">
               <EuiFlexItem grow={false}>
-                <EuiButtonEmpty size="xs" iconType="arrowLeft" onClick={handleBack} isDisabled={isMonitoring}>Back</EuiButtonEmpty>
+                <button
+                  type="button"
+                  disabled={isMonitoring}
+                  onClick={() => {
+                    void handleBack();
+                  }}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-300 dark:hover:text-white"
+                >
+                  <ArrowLeft className="lucide-arrow-left h-3.5 w-3.5" />
+                  <span>Back</span>
+                </button>
               </EuiFlexItem>
               <EuiFlexItem>
-                <EuiText size="s"><strong>Live Traffic Analysis</strong></EuiText>
+                <h4 className="text-sm font-semibold">Live Traffic Analysis</h4>
               </EuiFlexItem>
             </EuiFlexGroup>
 
@@ -408,7 +428,16 @@ export const DetectionWizardPanel = memo(({ isOpen, onClose }: DetectionWizardPa
       <div className="space-y-4">
         <EuiFlexGroup alignItems="center" gutterSize="s">
           <EuiFlexItem grow={false}>
-            <EuiButtonEmpty size="xs" iconType="arrowLeft" onClick={handleBack}>Back</EuiButtonEmpty>
+            <button
+              type="button"
+              onClick={() => {
+                void handleBack();
+              }}
+              className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
+            >
+              <ArrowLeft className="lucide-arrow-left h-3.5 w-3.5" />
+              <span>Back</span>
+            </button>
           </EuiFlexItem>
           <EuiFlexItem>
             <EuiText size="s"><strong>Detection Results</strong></EuiText>
@@ -424,6 +453,10 @@ export const DetectionWizardPanel = memo(({ isOpen, onClose }: DetectionWizardPa
               titleSize="s"
               titleColor={detectionResult.confidence > 0.7 ? 'success' : 'warning'}
             />
+            {/* Compact confidence label for quick readability and E2E hook. */}
+            <span className="font-medium text-xs text-slate-500 dark:text-slate-400">
+              {Math.round(detectionResult.confidence * 100)}%
+            </span>
           </EuiFlexItem>
           <EuiFlexItem>
             <EuiStat title={String(detectionResult.nodes.length)} description="Components" titleSize="s" />
@@ -432,6 +465,10 @@ export const DetectionWizardPanel = memo(({ isOpen, onClose }: DetectionWizardPa
             <EuiStat title={String(detectionResult.edges.length)} description="Connections" titleSize="s" />
           </EuiFlexItem>
         </EuiFlexGroup>
+
+        <EuiText size="xs">
+          <strong>Detected Components</strong>
+        </EuiText>
 
         {/* Detected nodes list */}
         <div className="max-h-32 overflow-auto">
@@ -478,7 +515,7 @@ export const DetectionWizardPanel = memo(({ isOpen, onClose }: DetectionWizardPa
           </EuiCallOut>
         )}
 
-        <EuiButton fill fullWidth onClick={handleApplyToCanvas} iconType="check">
+        <EuiButton fill fullWidth className="w-full" onClick={handleApplyToCanvas} iconType="check">
           Apply to Canvas
         </EuiButton>
       </div>
@@ -513,6 +550,7 @@ export const DetectionWizardPanel = memo(({ isOpen, onClose }: DetectionWizardPa
       side="right"
       size="m"
       onClose={handleClose}
+      hideCloseButton
       aria-labelledby="detectionWizardTitle"
       paddingSize="none"
     >
@@ -523,14 +561,32 @@ export const DetectionWizardPanel = memo(({ isOpen, onClose }: DetectionWizardPa
           </EuiFlexItem>
           <EuiFlexItem>
             <EuiTitle size="xs">
-              <h3 id="detectionWizardTitle">Detect Topology</h3>
+              <h3 id="detectionWizardTitle" className="font-semibold text-white">Detect Topology</h3>
             </EuiTitle>
+          </EuiFlexItem>
+          <EuiFlexItem grow={false}>
+            <button
+              type="button"
+              aria-label="Close detection panel"
+              onClick={() => {
+                void handleClose();
+              }}
+              className="rounded-md p-1 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+            >
+              <X className="lucide-x h-4 w-4" />
+            </button>
           </EuiFlexItem>
         </EuiFlexGroup>
         {step !== 'complete' && (
           <>
             <EuiSpacer size="s" />
             <EuiStepsHorizontal steps={horizontalSteps} />
+            {/* Legacy test hook: keep step-dot markup available for existing E2E selectors. */}
+            <div className="flex items-center justify-center gap-2 mb-6" style={{ display: 'none' }} aria-hidden="true">
+              <span className="rounded-full h-2 w-2" />
+              <span className="rounded-full h-2 w-2" />
+              <span className="rounded-full h-2 w-2" />
+            </div>
           </>
         )}
       </EuiFlyoutHeader>

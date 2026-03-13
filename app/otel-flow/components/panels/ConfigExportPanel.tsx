@@ -687,7 +687,7 @@ Total: ${bundlePreview.length} files
                   isLoading={isCopyingDiagram}
                   disabled={nodes.length === 0}
                 >
-                  {copied ? 'Copied' : 'Copy to Clipboard'}
+                  {copied ? 'Copied to clipboard' : 'Copy to Clipboard'}
                 </EuiButton>
               </EuiFlexItem>
             </EuiFlexGroup>

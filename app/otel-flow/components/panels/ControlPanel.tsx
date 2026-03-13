@@ -30,7 +30,11 @@ interface ControlPanelProps {
   onCopyDiagram?: () => Promise<void>;
 }
 
-export const ControlPanel = memo(({ onToggleDemo, onCopyDiagram }: ControlPanelProps): React.ReactElement => {
+export const ControlPanel = memo(({
+  onToggleDemo,
+  onOpenDetection,
+  onCopyDiagram,
+}: ControlPanelProps): React.ReactElement => {
   const [isDeploymentOpen, setIsDeploymentOpen] = useState(false);
   const [isScenarioOpen, setIsScenarioOpen] = useState(false);
   const { euiTheme } = useEuiTheme();
@@ -171,6 +175,17 @@ export const ControlPanel = memo(({ onToggleDemo, onCopyDiagram }: ControlPanelP
         {
           items: [
             <EuiHeaderLinks key="actions">
+              <EuiHeaderLink
+                iconType="sparkles"
+                onClick={() => {
+                  onOpenDetection?.();
+                }}
+                color="primary"
+                aria-label="Detect topology from config"
+                title="Detect topology from config"
+              >
+                Detect
+              </EuiHeaderLink>
               <EuiHeaderLink
                 iconType="exportAction"
                 onClick={toggleConfigPanel}
