@@ -20,6 +20,7 @@ yarn-error.log*
 
 # Environment
 .env
+.env.docker
 .env.local
 .env.development.local
 .env.test.local
@@ -28,6 +29,7 @@ yarn-error.log*
 # IDE
 .idea/
 .vscode/
+.cursorrules
 *.swp
 *.swo
 
@@ -47,3 +49,4 @@ next-env.d.ts
 !README.md
 .claude/*.md
 .github/ISSUE_TEMPLATE/*.md
+.vercel
