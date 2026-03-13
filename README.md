@@ -10,12 +10,7 @@
 
 ---
 
-> **📸 Note**: Visual demos and screenshots are being prepared. See [docs/SCREENSHOTS_NEEDED.md](./docs/SCREENSHOTS_NEEDED.md) for details.
-
-<!--
-TODO: Add hero screenshot/GIF here once captured
-![EDOT Flow Visualizer Demo](./docs/images/demo.gif)
--->
+![EDOT Flow Visualizer canvas](./public/canvas.png)
 
 ---
 
