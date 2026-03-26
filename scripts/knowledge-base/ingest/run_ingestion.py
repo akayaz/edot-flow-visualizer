@@ -1,18 +1,19 @@
 """Ingestion orchestrator for the EDOT Assistant knowledge base.
 
-Central CLI entry point for running all ingestion pipelines. Supports
-tier-based, source-specific, and full ingestion modes.
+This orchestrator now focuses on GitHub supplementary ingestion and can
+optionally trigger Open Web Crawler runs for docs/blog content.
 
 Usage:
     python -m ingest.run_ingestion --all
-    python -m ingest.run_ingestion --tier 1
+    python -m ingest.run_ingestion --tier 2
     python -m ingest.run_ingestion --source "elastic/opentelemetry"
-    python -m ingest.run_ingestion --tier 1 --dry-run
-    python -m ingest.run_ingestion --tier 1 --force
+    python -m ingest.run_ingestion --run-crawlers
+    python -m ingest.run_ingestion --run-connector --all
 """
 
 import logging
 import os
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -25,7 +26,6 @@ from rich.console import Console
 from rich.table import Table
 
 from ingest.base import IngestResult
-from ingest.jina_reader import JinaReaderIngestor
 from ingest.github_supplements import GitHubSupplementIngestor
 
 load_dotenv()
@@ -34,19 +34,9 @@ logger = logging.getLogger(__name__)
 
 SOURCES_FILE = Path(__file__).parent.parent / "config" / "sources.yaml"
 
-# Which tiers use which ingestor
-JINA_TIERS = {"tier_1", "tier_3", "tier_4", "tier_5"}
 GITHUB_TIERS = {"tier_2", "tier_3"}
-
-# Tier to index mapping for Jina Reader
-TIER_INDEX_MAP = {
-    "tier_1": "edot-assistant-docs-elastic",
-    "tier_3": "edot-assistant-docs-otel",
-    "tier_4": "edot-assistant-blogs",
-    "tier_5": "edot-assistant-community",
-}
-
-GITHUB_INDEX = "edot-assistant-github-repos"
+CRAWLER_SCRIPT = Path(__file__).parent.parent / "scripts" / "run_crawler.sh"
+GITHUB_INDEX = "edot-kb-github"
 
 
 def get_es_client() -> Elasticsearch:
@@ -68,27 +58,66 @@ def load_sources() -> dict:
         return yaml.safe_load(f)
 
 
-def ingest_jina_tier(
-    es: Elasticsearch,
-    tier_key: str,
-    sources: list[dict],
-    dry_run: bool = False,
-    force: bool = False,
-) -> list[IngestResult]:
-    """Run Jina Reader ingestion for a tier's web sources."""
-    default_index = TIER_INDEX_MAP.get(tier_key, "edot-assistant-docs-elastic")
-    web_sources = [s for s in sources if "url" in s]
+def run_crawlers(configs: list[str], dry_run: bool = False) -> bool:
+    """Launch crawler runs through the helper shell script."""
+    if not CRAWLER_SCRIPT.exists():
+        console.print(
+            f"[red]Crawler helper script not found:[/red] {CRAWLER_SCRIPT}"
+        )
+        return False
 
-    if not web_sources:
-        return []
+    cmd = ["bash", str(CRAWLER_SCRIPT)]
+    for config_name in configs:
+        cmd.extend(["--config", config_name])
+    if dry_run:
+        cmd.append("--dry-run")
 
-    ingestor = JinaReaderIngestor(
-        es_client=es,
-        index_name=default_index,
-        source_tier=tier_key,
-        dry_run=dry_run,
+    console.print(
+        "\n[bold cyan]Running crawler helper:[/bold cyan] "
+        + " ".join(cmd)
     )
-    return ingestor.ingest_tier(web_sources, force=force)
+    try:
+        result = subprocess.run(
+            cmd,
+            cwd=str(Path(__file__).parent.parent),
+            check=False,
+            capture_output=False,
+            text=True,
+        )
+        return result.returncode == 0
+    except Exception as e:
+        console.print(f"[red]Crawler helper failed:[/red] {e}")
+        return False
+
+
+def run_connector_sync(dry_run: bool = False) -> bool:
+    """Run connector setup and one initial sync before supplements."""
+    cmd = [sys.executable, "-m", "connectors.github_connector_setup", "--run-sync"]
+    console.print(
+        "\n[bold cyan]Running GitHub connector setup:[/bold cyan] "
+        + " ".join(cmd)
+    )
+    if dry_run:
+        console.print("[yellow]DRY RUN: Skipping connector execution.[/yellow]")
+        return True
+
+    try:
+        result = subprocess.run(
+            cmd,
+            cwd=str(Path(__file__).parent.parent),
+            check=False,
+            capture_output=False,
+            text=True,
+        )
+        return result.returncode == 0
+    except Exception as e:
+        console.print(f"[red]Connector setup failed:[/red] {e}")
+        return False
+
+
+def get_repo_sources(sources: list[dict]) -> list[dict]:
+    """Return only repository-based sources."""
+    return [s for s in sources if "repo" in s]
 
 
 def ingest_github_tier(
@@ -99,7 +128,7 @@ def ingest_github_tier(
     force: bool = False,
 ) -> list[IngestResult]:
     """Run GitHub supplements ingestion for a tier's repo sources."""
-    repo_sources = [s for s in sources if "repo" in s]
+    repo_sources = get_repo_sources(sources)
 
     if not repo_sources:
         return []
@@ -126,8 +155,15 @@ def ingest_tier(
     dry_run: bool = False,
     force: bool = False,
 ) -> list[IngestResult]:
-    """Ingest all sources in a given tier."""
+    """Ingest all GitHub sources in a given tier."""
     tier_key = f"tier_{tier_num}"
+    if tier_key not in GITHUB_TIERS:
+        console.print(
+            f"[yellow]{tier_key} contains crawler sources only. "
+            "Use --run-crawlers for web docs/blogs.[/yellow]"
+        )
+        return []
+
     tier_sources = sources_config.get("sources", {}).get(tier_key, [])
 
     if not tier_sources:
@@ -138,15 +174,8 @@ def ingest_tier(
 
     results = []
 
-    # Jina Reader for web content
-    if tier_key in JINA_TIERS:
-        jina_results = ingest_jina_tier(es, tier_key, tier_sources, dry_run, force)
-        results.extend(jina_results)
-
-    # GitHub supplements for repo content
-    if tier_key in GITHUB_TIERS:
-        github_results = ingest_github_tier(es, tier_key, tier_sources, dry_run, force)
-        results.extend(github_results)
+    github_results = ingest_github_tier(es, tier_key, tier_sources, dry_run, force)
+    results.extend(github_results)
 
     return results
 
@@ -158,15 +187,14 @@ def ingest_source(
     dry_run: bool = False,
     force: bool = False,
 ) -> list[IngestResult]:
-    """Ingest a specific source by URL or repo name."""
+    """Ingest a specific GitHub source by repo name or source name."""
     results = []
 
-    for tier_key in ["tier_1", "tier_2", "tier_3", "tier_4", "tier_5"]:
+    for tier_key in sorted(GITHUB_TIERS):
         tier_sources = sources_config.get("sources", {}).get(tier_key, [])
         for source in tier_sources:
             matched = (
                 source.get("repo") == source_id
-                or source.get("url") == source_id
                 or source.get("name") == source_id
             )
             if not matched:
@@ -174,25 +202,14 @@ def ingest_source(
 
             console.print(f"\n[bold cyan]Found source in {tier_key}:[/bold cyan] {source.get('name', source_id)}")
 
-            if "repo" in source:
-                ingestor = GitHubSupplementIngestor(
-                    es_client=es,
-                    index_name=GITHUB_INDEX,
-                    source_tier=tier_key,
-                    dry_run=dry_run,
-                )
-                result = ingestor.ingest_repo(source, force=force)
-                results.append(result)
-            elif "url" in source:
-                default_index = source.get("index", TIER_INDEX_MAP.get(tier_key, "edot-assistant-docs-elastic"))
-                ingestor = JinaReaderIngestor(
-                    es_client=es,
-                    index_name=default_index,
-                    source_tier=tier_key,
-                    dry_run=dry_run,
-                )
-                result = ingestor.ingest_source(source, force=force)
-                results.append(result)
+            ingestor = GitHubSupplementIngestor(
+                es_client=es,
+                index_name=GITHUB_INDEX,
+                source_tier=tier_key,
+                dry_run=dry_run,
+            )
+            result = ingestor.ingest_repo(source, force=force)
+            results.append(result)
 
     if not results:
         console.print(f"[yellow]Source not found:[/yellow] {source_id}")
@@ -250,9 +267,27 @@ def print_summary(all_results: list[IngestResult]) -> None:
 
 
 @click.command()
-@click.option("--all", "ingest_all", is_flag=True, help="Ingest all tiers.")
-@click.option("--tier", type=int, help="Ingest a specific tier (1-5).")
-@click.option("--source", type=str, help="Ingest a specific source by repo or URL.")
+@click.option("--all", "ingest_all", is_flag=True, help="Ingest all GitHub tiers (2 and 3).")
+@click.option("--tier", type=int, help="Ingest a specific GitHub tier (2 or 3).")
+@click.option("--source", type=str, help="Ingest a specific GitHub source by repo or source name.")
+@click.option(
+    "--run-crawlers",
+    "run_crawlers_flag",
+    is_flag=True,
+    help="Run the crawler helper for web docs/blogs.",
+)
+@click.option(
+    "--run-connector",
+    "run_connector_flag",
+    is_flag=True,
+    help="Run GitHub connector setup and initial sync before supplements.",
+)
+@click.option(
+    "--crawler-config",
+    "crawler_configs",
+    multiple=True,
+    help="Crawler config filename to run (repeatable). Default: run all crawler configs.",
+)
 @click.option("--dry-run", is_flag=True, help="Preview what would be ingested without actually indexing.")
 @click.option("--force", is_flag=True, help="Re-ingest all content, ignoring content hash.")
 @click.option("--log-level", default="INFO", help="Log level (DEBUG, INFO, WARNING, ERROR).")
@@ -260,6 +295,9 @@ def main(
     ingest_all: bool,
     tier: int,
     source: str,
+    run_crawlers_flag: bool,
+    run_connector_flag: bool,
+    crawler_configs: tuple[str, ...],
     dry_run: bool,
     force: bool,
     log_level: str,
@@ -271,42 +309,61 @@ def main(
     if dry_run:
         console.print("[yellow]DRY RUN MODE — no documents will be indexed.[/yellow]")
 
-    if not any([ingest_all, tier, source]):
-        console.print("[red]Specify --all, --tier, or --source.[/red]")
-        sys.exit(1)
-
-    es = get_es_client()
-
-    try:
-        info = es.info()
-        console.print(f"Connected to Elasticsearch {info['version']['number']}")
-    except Exception as e:
-        console.print(f"[red]Cannot connect to Elasticsearch:[/red] {e}")
+    if not any([ingest_all, tier, source, run_crawlers_flag, run_connector_flag]):
+        console.print(
+            "[red]Specify at least one mode: --all, --tier, --source, "
+            "--run-crawlers, or --run-connector.[/red]"
+        )
         sys.exit(1)
 
     sources_config = load_sources()
-    all_results = []
+    all_results: list[IngestResult] = []
     start_time = time.time()
+    had_error = False
 
-    if source:
-        results = ingest_source(es, source, sources_config, dry_run, force)
-        all_results.extend(results)
-    elif tier:
-        if tier < 1 or tier > 5:
-            console.print("[red]Tier must be between 1 and 5.[/red]")
+    if run_connector_flag:
+        connector_ok = run_connector_sync(dry_run=dry_run)
+        if not connector_ok:
+            had_error = True
+
+    if run_crawlers_flag:
+        selected_configs = list(crawler_configs) if crawler_configs else []
+        crawlers_ok = run_crawlers(selected_configs, dry_run=dry_run)
+        if not crawlers_ok:
+            had_error = True
+
+    needs_es = any([ingest_all, tier is not None, bool(source)])
+    if needs_es:
+        es = get_es_client()
+        try:
+            info = es.info()
+            console.print(f"Connected to Elasticsearch {info['version']['number']}")
+        except Exception as e:
+            console.print(f"[red]Cannot connect to Elasticsearch:[/red] {e}")
             sys.exit(1)
-        results = ingest_tier(es, tier, sources_config, dry_run, force)
-        all_results.extend(results)
-    elif ingest_all:
-        for t in range(1, 6):
-            results = ingest_tier(es, t, sources_config, dry_run, force)
+
+        if source:
+            results = ingest_source(es, source, sources_config, dry_run, force)
             all_results.extend(results)
+        elif tier:
+            if tier not in (2, 3):
+                console.print("[red]Tier must be 2 or 3 for GitHub ingestion.[/red]")
+                sys.exit(1)
+            results = ingest_tier(es, tier, sources_config, dry_run, force)
+            all_results.extend(results)
+        elif ingest_all:
+            for t in [2, 3]:
+                results = ingest_tier(es, t, sources_config, dry_run, force)
+                all_results.extend(results)
 
     # Print summary
-    print_summary(all_results)
+    if all_results:
+        print_summary(all_results)
 
     total_time = time.time() - start_time
     console.print(f"\n[bold]Total elapsed time:[/bold] {total_time:.1f}s")
+    if had_error:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

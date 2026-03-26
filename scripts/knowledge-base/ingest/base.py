@@ -128,6 +128,7 @@ class BaseIngestor:
         url: str,
         content_type: str = "documentation",
         language_sdk: Optional[str] = None,
+        code_content: Optional[str] = None,
         tags: Optional[list[str]] = None,
         extra_fields: Optional[dict] = None,
     ) -> dict:
@@ -147,6 +148,8 @@ class BaseIngestor:
         }
         if language_sdk:
             doc["language_sdk"] = language_sdk
+        if code_content:
+            doc["code_semantic"] = code_content
         if extra_fields:
             doc.update(extra_fields)
         return doc

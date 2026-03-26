@@ -11,6 +11,7 @@ dist/
 
 # Testing
 coverage/
+test-results/
 
 # Production
 *.log
@@ -29,6 +30,7 @@ yarn-error.log*
 # IDE
 .idea/
 .vscode/
+.cursor/
 .cursorrules
 *.swp
 *.swo
@@ -43,6 +45,7 @@ next-env.d.ts
 
 # Misc
 *.pem
+__pycache__/
 
 # Markdown files - only keep README.md and docs folder
 *.md

@@ -398,5 +398,32 @@
     "expected_keywords": ["APM", "exporter", "endpoint", "authorization", "pipeline"],
     "expected_indices": ["edot-assistant-docs-elastic"],
     "difficulty": "intermediate"
+  },
+  {
+    "id": "edot-code-01",
+    "category": "collector_configuration",
+    "question": "Show me a Python OTLP exporter configuration example.",
+    "expected_keywords": ["OTLPSpanExporter", "endpoint", "collector", "4317"],
+    "expected_indices": ["edot-assistant-github-repos"],
+    "difficulty": "intermediate",
+    "search_field": "code_semantic"
+  },
+  {
+    "id": "edot-code-02",
+    "category": "collector_configuration",
+    "question": "How do I set up memory_limiter in collector YAML?",
+    "expected_keywords": ["memory_limiter", "processors", "batch", "yaml"],
+    "expected_indices": ["edot-assistant-github-repos", "edot-assistant-docs-elastic"],
+    "difficulty": "intermediate",
+    "search_field": "both"
+  },
+  {
+    "id": "edot-code-03",
+    "category": "sdk_instrumentation",
+    "question": "Find a code snippet that configures OTLP endpoint in Python SDK.",
+    "expected_keywords": ["OTEL_EXPORTER_OTLP_ENDPOINT", "python", "exporter"],
+    "expected_indices": ["edot-assistant-github-repos"],
+    "difficulty": "intermediate",
+    "search_field": "code_semantic"
   }
 ]

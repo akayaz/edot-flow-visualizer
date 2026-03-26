@@ -1,5 +1,5 @@
 {
-  "name": "EDOT Assistant - Stale Tier 1 Documents",
+  "name": "EDOT Assistant - Stale Knowledge Base Documents",
   "consumer": "alerts",
   "rule_type_id": ".es-query",
   "schedule": {
@@ -8,7 +8,7 @@
   "params": {
     "searchType": "esqlQuery",
     "esqlQuery": {
-      "esql": "FROM edot-assistant-docs-elastic | WHERE freshness_score < 0.3 | STATS stale_count = COUNT(*)"
+      "esql": "FROM edot-kb-docs | WHERE freshness_score < 0.3 | STATS stale_count = COUNT(*)"
     },
     "threshold": [1],
     "thresholdComparator": ">="
@@ -18,8 +18,8 @@
       "group": "threshold met",
       "id": "{{CONNECTOR_ID}}",
       "params": {
-        "message": "EDOT Assistant Alert: {{context.value}} Tier 1 documents have stale content (freshness_score < 0.3). Run 'python -m ingest.run_ingestion --tier 1 --force' to refresh.",
-        "subject": "EDOT Assistant - Stale Tier 1 Documents Detected"
+        "message": "EDOT Assistant Alert: {{context.value}} documents in edot-kb-docs are stale (freshness_score < 0.3). Refresh with 'bash scripts/run_crawler.sh' and/or 'python -m ingest.run_ingestion --all --force'.",
+        "subject": "EDOT Assistant - Stale Documents Detected"
       }
     }
   ],

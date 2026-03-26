@@ -1,11 +1,11 @@
 """Content change detection using SHA-256 hashing.
 
 Compares content hashes to determine if a document needs re-ingestion.
-Used by JinaReaderIngestor and GitHubSupplementIngestor to avoid
+Used by ingestion pipelines to avoid
 redundant re-indexing of unchanged content.
 
 Usage:
-    python -m freshness.change_detector --index edot-assistant-docs-elastic --url "https://example.com"
+    python -m freshness.change_detector --index edot-kb-docs --url "https://example.com"
 """
 
 import hashlib

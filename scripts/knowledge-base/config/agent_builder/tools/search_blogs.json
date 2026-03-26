@@ -3,7 +3,7 @@
   "type": "esql",
   "description": "Search Elastic and OpenTelemetry blog posts and tutorials for announcements, deep dives, and practical guides. Use when the user asks about recent developments, use cases, or step-by-step tutorials.",
   "configuration": {
-    "query": "FROM edot-assistant-blogs | WHERE body_semantic MATCH ?query | KEEP title, body, url, tags, last_crawled | SORT _score DESC | LIMIT 5"
+    "query": "FROM edot-kb-docs METADATA _score | WHERE content_type == \"blog\" AND MATCH(body_semantic, ?query) | KEEP title, body, url, tags, source_tier, last_crawled, _score | SORT _score DESC | LIMIT 5"
   },
   "params": {
     "query": {

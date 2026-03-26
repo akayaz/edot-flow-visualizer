@@ -3,7 +3,7 @@
   "type": "esql",
   "description": "Check the latest release version and changelog for any EDOT or OTel component. Use when the user asks about current versions, recent changes, or compatibility.",
   "configuration": {
-    "query": "FROM edot-assistant-github-repos | WHERE content_type == \"release\" AND repo LIKE ?repo_pattern | KEEP title, body, url, repo, last_modified, version, release_tag | SORT last_modified DESC | LIMIT 3"
+    "query": "FROM edot-kb-github | WHERE content_type == \"release\" AND repo LIKE ?repo_pattern | KEEP title, body, url, repo, last_modified, version, release_tag | SORT last_modified DESC | LIMIT 3"
   },
   "params": {
     "repo_pattern": {

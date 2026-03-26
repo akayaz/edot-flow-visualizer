@@ -28,20 +28,9 @@ logger = logging.getLogger(__name__)
 STALE_THRESHOLD = 0.3  # Documents below this score are considered stale
 
 ALL_INDICES = [
-    "edot-assistant-docs-elastic",
-    "edot-assistant-docs-otel",
-    "edot-assistant-github-repos",
-    "edot-assistant-blogs",
-    "edot-assistant-community",
+    "edot-kb-docs",
+    "edot-kb-github",
 ]
-
-INDEX_TIER_MAP = {
-    "edot-assistant-docs-elastic": "tier_1",
-    "edot-assistant-docs-otel": "tier_3",
-    "edot-assistant-github-repos": "tier_2",
-    "edot-assistant-blogs": "tier_4",
-    "edot-assistant-community": "tier_5",
-}
 
 
 @dataclass

@@ -1,7 +1,7 @@
 """One-command setup for the entire EDOT Assistant knowledge base.
 
 Runs all setup steps in order:
-1. Create inference endpoints (ELSER v2)
+1. Create inference endpoint (Jina v5 on EIS)
 2. Create Elasticsearch indices
 3. Create ingest pipelines
 4. Set up GitHub connectors
@@ -31,12 +31,12 @@ SETUP_STEPS = [
     {
         "name": "Inference Endpoints",
         "module": "setup.create_inference_endpoints",
-        "description": "Deploy ELSER v2 for semantic_text fields",
+        "description": "Deploy jina-embeddings-v5-text-small endpoint for semantic_text",
     },
     {
         "name": "Elasticsearch Indices",
         "module": "setup.create_indices",
-        "description": "Create 5 indices with semantic_text mappings and aliases",
+        "description": "Create 2 consolidated indices with semantic_text mappings",
     },
     {
         "name": "Ingest Pipelines",
@@ -101,8 +101,8 @@ def main(dry_run: bool, skip_agent: bool, continue_on_error: bool) -> None:
     console.print(Panel(
         "[bold blue]EDOT Assistant — Full Setup[/bold blue]\n\n"
         "This will set up the complete knowledge base infrastructure:\n"
-        "  1. Inference endpoints (ELSER v2)\n"
-        "  2. Elasticsearch indices (5 indices with semantic_text)\n"
+        "  1. Inference endpoint (Jina v5 on EIS)\n"
+        "  2. Elasticsearch indices (edot-kb-docs + edot-kb-github)\n"
         "  3. Ingest pipelines\n"
         "  4. GitHub connectors (Elastic + OTel repos)\n"
         "  5. Agent Builder agent + tools",
@@ -152,9 +152,9 @@ def main(dry_run: bool, skip_agent: bool, continue_on_error: bool) -> None:
     if success == total:
         console.print(f"\n[green bold]All {total} steps completed successfully![/green bold]")
         console.print("\nNext steps:")
-        console.print("  1. Run initial ingestion: python -m ingest.run_ingestion --tier 1")
-        console.print("  2. Start the connector service Docker container")
-        console.print("  3. Start the refresh scheduler: python -m freshness.refresh_scheduler")
+        console.print("  1. Crawl docs/blogs: bash scripts/run_crawler.sh")
+        console.print("  2. Run GitHub supplements: python -m ingest.run_ingestion --all")
+        console.print("  3. Start refresh scheduler: python -m freshness.refresh_scheduler")
     else:
         console.print(f"\n[yellow]{success}/{total} steps completed. Review errors above.[/yellow]")
         sys.exit(1)

@@ -3,7 +3,7 @@
   "type": "esql",
   "description": "Search Elastic's official EDOT and OpenTelemetry documentation for configuration guides, component references, and best practices. Use when the user asks about EDOT setup, collector configuration, SDK instrumentation, or Elastic-specific OTel features.",
   "configuration": {
-    "query": "FROM edot-assistant-docs-elastic | WHERE body_semantic MATCH ?query | KEEP title, body, url, source_tier, last_crawled | SORT _score DESC | LIMIT 5"
+    "query": "FROM edot-kb-docs METADATA _score | WHERE source_tier == \"tier_1\" AND MATCH(body_semantic, ?query) | KEEP title, body, url, source_tier, content_type, last_crawled, _score | SORT _score DESC | LIMIT 5"
   },
   "params": {
     "query": {

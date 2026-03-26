@@ -33,11 +33,8 @@ TIER_MAX_AGE_DAYS = {
 }
 
 ALL_INDICES = [
-    "edot-assistant-docs-elastic",
-    "edot-assistant-docs-otel",
-    "edot-assistant-github-repos",
-    "edot-assistant-blogs",
-    "edot-assistant-community",
+    "edot-kb-docs",
+    "edot-kb-github",
 ]
 
 

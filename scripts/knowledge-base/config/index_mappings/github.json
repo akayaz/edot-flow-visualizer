@@ -7,19 +7,33 @@
       },
       "body": {
         "type": "text",
-        "analyzer": "english"
+        "analyzer": "english",
+        "copy_to": "body_semantic"
       },
       "body_semantic": {
         "type": "semantic_text",
-        "inference_id": ".elser-2-elastic"
+        "inference_id": "jina-v5-small"
+      },
+      "code_semantic": {
+        "type": "semantic_text",
+        "inference_id": "jina-code"
       },
       "url": {
+        "type": "keyword"
+      },
+      "source": {
         "type": "keyword"
       },
       "source_type": {
         "type": "keyword"
       },
       "source_tier": {
+        "type": "keyword"
+      },
+      "repo": {
+        "type": "keyword"
+      },
+      "file_path": {
         "type": "keyword"
       },
       "content_type": {
@@ -41,6 +55,9 @@
         "type": "date"
       },
       "version": {
+        "type": "keyword"
+      },
+      "release_tag": {
         "type": "keyword"
       },
       "freshness_score": {

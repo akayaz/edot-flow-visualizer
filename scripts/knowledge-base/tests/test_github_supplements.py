@@ -19,7 +19,7 @@ class TestGitHubSupplementIngestor:
         self.mock_es = MagicMock()
         self.ingestor = GitHubSupplementIngestor(
             es_client=self.mock_es,
-            index_name="test-github-index",
+            index_name="edot-kb-github",
             source_tier="tier_2",
             github_token="test-token",
         )
@@ -127,6 +127,8 @@ class TestGitHubSupplementIngestor:
         for doc in docs:
             assert doc["content_type"] == "yaml_config"
             assert "yaml" in doc["tags"]
+            assert "code_semantic" in doc
+            assert "receivers" in doc["code_semantic"]
 
     @patch("ingest.github_supplements.requests.get")
     def test_fetch_code_examples(self, mock_get):
@@ -155,6 +157,7 @@ class TestGitHubSupplementIngestor:
         assert len(docs) == 2  # .py and .java only
         for doc in docs:
             assert doc["content_type"] == "code_example"
+            assert doc["code_semantic"] == "print('hello world')"
 
     @patch("ingest.github_supplements.requests.get")
     def test_fetch_code_examples_respects_size_limit(self, mock_get):
@@ -180,6 +183,35 @@ class TestGitHubSupplementIngestor:
 
         docs = self.ingestor.fetch_code_examples("elastic/otel", ["examples"])
         assert len(docs) == 1  # Only the small file
+
+    @patch("ingest.github_supplements.requests.get")
+    def test_fetch_yaml_configs_tree_is_loaded_once(self, mock_get):
+        """Repo tree should be fetched once even with multiple directories."""
+        tree_response = Mock()
+        tree_response.status_code = 200
+        tree_response.headers = {"X-RateLimit-Remaining": "4999"}
+        tree_response.json.return_value = {
+            "tree": [
+                {"path": "docs/collector.yml", "type": "blob", "size": 200},
+            ]
+        }
+        tree_response.raise_for_status = Mock()
+
+        raw_response = Mock()
+        raw_response.status_code = 200
+        raw_response.headers = {"X-RateLimit-Remaining": "4998"}
+        raw_response.text = "processors:\n  batch: {}"
+        raw_response.raise_for_status = Mock()
+
+        mock_get.side_effect = [tree_response, raw_response]
+        docs = self.ingestor.fetch_yaml_configs("elastic/otel", ["docs", "examples"])
+
+        assert len(docs) == 1
+        tree_calls = [
+            c for c in mock_get.call_args_list
+            if "/git/trees/" in c.args[0]
+        ]
+        assert len(tree_calls) == 1
 
     def test_ingest_repo_dry_run(self):
         """Dry run should not index any documents."""

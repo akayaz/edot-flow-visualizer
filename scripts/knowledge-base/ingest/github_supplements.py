@@ -108,6 +108,21 @@ class GitHubSupplementIngestor(BaseIngestor):
             logger.error("GitHub raw content fetch failed for %s: %s", url, e)
             return None
 
+    def _fetch_repo_tree(self, repo: str) -> list[dict]:
+        """Fetch repository tree once, preferring main then master branch."""
+        tree = self._github_get(
+            f"/repos/{repo}/git/trees/main",
+            params={"recursive": "1"},
+        )
+        if not tree or "tree" not in tree:
+            tree = self._github_get(
+                f"/repos/{repo}/git/trees/master",
+                params={"recursive": "1"},
+            )
+        if not tree or "tree" not in tree:
+            return []
+        return tree["tree"]
+
     def fetch_releases(
         self, repo: str, limit: int = 5
     ) -> list[dict]:
@@ -159,55 +174,47 @@ class GitHubSupplementIngestor(BaseIngestor):
         console.print(f"    Fetching YAML configs from {repo}...")
         docs = []
 
-        for directory in directories:
-            tree = self._github_get(
-                f"/repos/{repo}/git/trees/main",
-                params={"recursive": "1"},
-            )
-            if not tree or "tree" not in tree:
-                # Try 'master' branch
-                tree = self._github_get(
-                    f"/repos/{repo}/git/trees/master",
-                    params={"recursive": "1"},
-                )
-            if not tree or "tree" not in tree:
+        tree_items = self._fetch_repo_tree(repo)
+        if not tree_items:
+            return docs
+
+        for item in tree_items:
+            path = item.get("path", "")
+            in_target_dir = any(path.startswith(directory + "/") for directory in directories)
+            if not in_target_dir:
+                continue
+            if item.get("type") != "blob":
                 continue
 
-            for item in tree["tree"]:
-                path = item.get("path", "")
-                if not path.startswith(directory + "/"):
-                    continue
-                if item.get("type") != "blob":
-                    continue
+            # Check file extension
+            ext = os.path.splitext(path)[1].lower()
+            if ext not in YAML_EXTENSIONS:
+                continue
 
-                # Check file extension
-                ext = os.path.splitext(path)[1].lower()
-                if ext not in YAML_EXTENSIONS:
-                    continue
+            # Check file size
+            size = item.get("size", 0)
+            if size > MAX_FILE_SIZE:
+                continue
 
-                # Check file size
-                size = item.get("size", 0)
-                if size > MAX_FILE_SIZE:
-                    continue
+            # Fetch raw content
+            content = self._github_get_raw(f"/repos/{repo}/contents/{path}")
+            if not content:
+                continue
 
-                # Fetch raw content
-                content = self._github_get_raw(f"/repos/{repo}/contents/{path}")
-                if not content:
-                    continue
-
-                doc = self.prepare_document(
-                    title=f"{repo}/{path}",
-                    body=f"# {path}\n\nRepository: {repo}\n\n```yaml\n{content}\n```",
-                    url=f"https://github.com/{repo}/blob/main/{path}",
-                    content_type="yaml_config",
-                    tags=["yaml", "config", "example"],
-                    extra_fields={
-                        "repo": repo,
-                        "file_path": path,
-                        "source_type": "github",
-                    },
-                )
-                docs.append(doc)
+            doc = self.prepare_document(
+                title=f"{repo}/{path}",
+                body=f"# {path}\n\nRepository: {repo}\n\n```yaml\n{content}\n```",
+                url=f"https://github.com/{repo}/blob/main/{path}",
+                content_type="yaml_config",
+                code_content=content,
+                tags=["yaml", "config", "example"],
+                extra_fields={
+                    "repo": repo,
+                    "file_path": path,
+                    "source_type": "github",
+                },
+            )
+            docs.append(doc)
 
         console.print(f"      Found {len(docs)} YAML files")
         return docs
@@ -225,19 +232,11 @@ class GitHubSupplementIngestor(BaseIngestor):
         console.print(f"    Fetching code examples from {repo}...")
         docs = []
 
-        tree = self._github_get(
-            f"/repos/{repo}/git/trees/main",
-            params={"recursive": "1"},
-        )
-        if not tree or "tree" not in tree:
-            tree = self._github_get(
-                f"/repos/{repo}/git/trees/master",
-                params={"recursive": "1"},
-            )
-        if not tree or "tree" not in tree:
+        tree_items = self._fetch_repo_tree(repo)
+        if not tree_items:
             return docs
 
-        for item in tree["tree"]:
+        for item in tree_items:
             path = item.get("path", "")
             in_target_dir = any(path.startswith(d + "/") for d in directories)
             if not in_target_dir:
@@ -270,6 +269,7 @@ class GitHubSupplementIngestor(BaseIngestor):
                 url=f"https://github.com/{repo}/blob/main/{path}",
                 content_type="code_example",
                 language_sdk=language_sdk,
+                code_content=content,
                 tags=["code", "example", lang],
                 extra_fields={
                     "repo": repo,

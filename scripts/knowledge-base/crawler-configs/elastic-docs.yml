@@ -1,22 +1,21 @@
-# Tier 1 — Elastic Official Documentation
-# Crawls EDOT-related pages from elastic.co/docs
-# Outputs to: edot-assistant-docs-elastic-v1
+# Elastic Open Web Crawler config for Elastic EDOT docs.
+# Index target: edot-kb-docs
 
 output_sink: elasticsearch
-output_index: edot-assistant-docs-elastic-v1
+output_index: edot-kb-docs
 
 max_crawl_depth: 5
-max_unique_url_count: 500
+max_unique_url_count: 2000
 max_body_size: 5_242_880
 purge_crawl_enabled: false
-threads_per_crawl: 5
-stats_dump_interval: 15
+threads_per_crawl: 6
+stats_dump_interval: 20
 
 elasticsearch:
   host: <%= ENV['ES_HOST'] %>
   port: 443
   api_key: <%= ENV['ES_API_KEY'] %>
-  pipeline: edot-crawler-docs-elastic
+  pipeline: edot-assistant-processing
   pipeline_enabled: true
 
 domains:
@@ -29,10 +28,11 @@ domains:
       - https://www.elastic.co/docs/reference/opentelemetry/edot-sdks/node
       - https://www.elastic.co/docs/reference/opentelemetry/edot-sdks/dotnet
       - https://www.elastic.co/docs/reference/opentelemetry/edot-sdks/android
-      - https://www.elastic.co/docs/reference/opentelemetry/compatibility/data-streams
       - https://www.elastic.co/docs/solutions/observability/apm/opentelemetry
       - https://www.elastic.co/docs/solutions/search/elastic-agent-builder
       - https://www.elastic.co/docs/solutions/search/semantic-search
+    sitemap_urls:
+      - https://www.elastic.co/sitemap.xml
 
     exclude_tags:
       - header
@@ -40,7 +40,6 @@ domains:
       - nav
 
     crawl_rules:
-      # Allow EDOT documentation paths
       - policy: allow
         type: begins
         pattern: /docs/reference/opentelemetry
@@ -56,7 +55,6 @@ domains:
       - policy: allow
         type: begins
         pattern: /docs/solutions/search/semantic-search
-      # Deny everything else on elastic.co
       - policy: deny
         type: regex
         pattern: .*

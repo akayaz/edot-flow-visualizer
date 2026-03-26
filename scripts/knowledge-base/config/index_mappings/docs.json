@@ -7,19 +7,31 @@
       },
       "body": {
         "type": "text",
-        "analyzer": "english"
+        "analyzer": "english",
+        "copy_to": "body_semantic"
+      },
+      "body_content": {
+        "type": "text",
+        "analyzer": "english",
+        "copy_to": "body_semantic"
       },
       "body_semantic": {
         "type": "semantic_text",
-        "inference_id": ".elser-2-elastic"
+        "inference_id": "jina-v5-small"
       },
       "url": {
+        "type": "keyword"
+      },
+      "source": {
         "type": "keyword"
       },
       "source_type": {
         "type": "keyword"
       },
       "source_tier": {
+        "type": "keyword"
+      },
+      "domain": {
         "type": "keyword"
       },
       "content_type": {

@@ -1,33 +1,33 @@
 # EDOT Assistant — Knowledge Base Infrastructure
 
-This directory contains the Python scripts, configuration files, and tooling needed to build and maintain the knowledge base powering the **EDOT Assistant** embedded in the EDOT Flow Visualizer.
+This directory contains the ingestion, setup, and quality tooling for the EDOT Assistant knowledge base.
 
-## Overview
+## Architecture
 
-The knowledge base is composed of five Elasticsearch indices populated from authoritative EDOT and OpenTelemetry sources:
+The current architecture uses:
 
-| Index | Content | Ingestion Method |
-|-------|---------|-----------------|
-| `edot-assistant-docs-elastic` | Elastic official EDOT docs | Jina Reader |
-| `edot-assistant-docs-otel` | OpenTelemetry project docs | Jina Reader |
-| `edot-assistant-github-repos` | GitHub repos (markdown, issues, PRs, YAML, releases) | Elastic GitHub Connector + Supplementary Script |
-| `edot-assistant-blogs` | Blog posts and tutorials | Jina Reader |
-| `edot-assistant-community` | Community resources | Jina Reader |
+- `Elastic Open Web Crawler` for trusted documentation/blog crawling.
+- `GitHub connector + supplements script` for repository content.
+- `semantic_text` fields with `jina-embeddings-v5-text-small` through EIS.
 
-All indices use `semantic_text` fields powered by ELSER v2 for semantic search.
+### Indices
+
+| Index | Purpose |
+|---|---|
+| `edot-kb-docs` | Elastic docs, OTel docs, and trusted blogs |
+| `edot-kb-github` | GitHub docs/issues/PRs + supplemental releases/YAML/code |
 
 ## Prerequisites
 
 - Python 3.11+
-- Elastic Cloud deployment (Enterprise license for Agent Builder)
-- Elastic Stack 9.x with Agent Builder enabled
-- ELSER v2 inference endpoint deployed
-- Jina AI API key
-- GitHub personal access token (with `repo`, `user`, `read:org` scopes)
+- Docker (for Open Web Crawler runs)
+- Elastic Cloud project (Search/Serverless recommended)
+- Agent Builder access (if creating the EDOT Assistant agent)
+- GitHub token with repository read permissions
 
 ## Quick Start
 
-### 1. Install dependencies
+### 1) Install dependencies
 
 ```bash
 cd scripts/knowledge-base
@@ -36,102 +36,36 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Configure environment
+### 2) Configure environment
 
 ```bash
 cp .env.example .env
-# Edit .env with your credentials
+# Fill in ELASTICSEARCH_URL, ELASTICSEARCH_API_KEY, GITHUB_TOKEN, and Agent Builder vars
 ```
 
-### 3. Run full setup
+### 3) One-command setup
 
 ```bash
 python -m setup.setup_all
 ```
 
-This creates inference endpoints, indices, ingest pipelines, GitHub connectors, and the Agent Builder agent in one command.
+This creates the Jina inference endpoint, indices, ingest pipelines, connectors, and the Agent Builder agent/tools.
 
-### 4. Run initial ingestion
+### 4) Ingest data
 
 ```bash
-# Ingest Tier 1 (Elastic EDOT docs) — highest priority
-python -m ingest.run_ingestion --tier 1
+# Crawl trusted docs/blog sources
+bash scripts/run_crawler.sh
 
-# Ingest all tiers
+# Ingest GitHub supplemental content
 python -m ingest.run_ingestion --all
 ```
 
-### 5. Start the refresh scheduler
-
-```bash
-python -m freshness.refresh_scheduler
-```
-
-## Directory Structure
-
-```
-scripts/knowledge-base/
-├── config/                    # Configuration files
-│   ├── sources.yaml           # Source registry (all 5 tiers)
-│   ├── index_mappings/        # Elasticsearch index mappings
-│   ├── ingest_pipelines/      # Elasticsearch ingest pipelines
-│   └── agent_builder/         # Agent Builder config (prompt, tools)
-├── setup/                     # One-time setup scripts
-│   ├── create_inference_endpoints.py
-│   ├── create_indices.py
-│   ├── create_ingest_pipelines.py
-│   ├── setup_agent.py
-│   └── setup_all.py
-├── ingest/                    # Ingestion pipelines
-│   ├── base.py                # Base ingestion class
-│   ├── jina_reader.py         # Web content via Jina Reader
-│   ├── github_supplements.py  # YAML/releases/code from GitHub
-│   ├── web_crawler_config.py  # Open Web Crawler config generator
-│   └── run_ingestion.py       # CLI orchestrator
-├── connectors/                # Elastic connector configuration
-│   ├── github_connector_setup.py
-│   └── connector_configs/
-├── freshness/                 # Data freshness management
-│   ├── change_detector.py
-│   ├── freshness_scorer.py
-│   ├── staleness_checker.py
-│   └── refresh_scheduler.py
-├── monitoring/                # Kibana dashboards and alerts
-│   ├── kibana_dashboards/
-│   └── alert_rules/
-└── tests/                     # Tests and benchmarks
-    ├── test_retrieval_quality.py
-    └── fixtures/
-```
-
-## CLI Reference
-
-### Ingestion
-
-```bash
-# Ingest everything
-python -m ingest.run_ingestion --all
-
-# Ingest a specific tier (1-5)
-python -m ingest.run_ingestion --tier 1
-
-# Ingest a specific source
-python -m ingest.run_ingestion --source "elastic/opentelemetry"
-
-# Dry run (preview what would be ingested)
-python -m ingest.run_ingestion --tier 1 --dry-run
-
-# Force re-ingest (ignore content hash)
-python -m ingest.run_ingestion --tier 1 --force
-```
+## Main Commands
 
 ### Setup
 
 ```bash
-# Full setup (all steps)
-python -m setup.setup_all
-
-# Individual setup steps
 python -m setup.create_inference_endpoints
 python -m setup.create_indices
 python -m setup.create_ingest_pipelines
@@ -139,35 +73,67 @@ python -m connectors.github_connector_setup
 python -m setup.setup_agent
 ```
 
-### Freshness
+### Ingestion
 
 ```bash
-# Start the refresh scheduler (long-running)
-python -m freshness.refresh_scheduler
+# Run crawler helper (all configs)
+python -m ingest.run_ingestion --run-crawlers
 
-# Manual freshness score update
-python -m freshness.freshness_scorer
+# Run only selected crawler configs
+python -m ingest.run_ingestion --run-crawlers --crawler-config elastic-docs.yml --crawler-config otel-docs.yml
 
-# Check for stale documents
-python -m freshness.staleness_checker
+# Ingest all GitHub supplement tiers
+python -m ingest.run_ingestion --all
+
+# Ingest a specific GitHub tier
+python -m ingest.run_ingestion --tier 2
+
+# Ingest a specific GitHub source
+python -m ingest.run_ingestion --source "elastic/opentelemetry"
+
+# Dry run
+python -m ingest.run_ingestion --all --dry-run
 ```
 
 ### Testing
 
 ```bash
-# Run retrieval quality benchmark
+# Offline tests
+python -m pytest tests/test_base_ingestor.py tests/test_github_supplements.py tests/test_freshness.py tests/test_config_validation.py -v
+
+# Integration tests (live cluster required)
+python -m pytest tests/test_inference_endpoint.py tests/test_index_lifecycle.py tests/test_github_ingestion.py -v
+
+# Retrieval benchmark
 python -m pytest tests/test_retrieval_quality.py -v
 
-# Run all tests
-python -m pytest tests/ -v
+# End-to-end smoke tests
+python -m pytest tests/test_e2e_smoke.py tests/test_crawler_configs.py -v
 ```
 
-## Source Tiers
+## Directory Layout
 
-| Tier | Sources | Refresh Cadence | Freshness Threshold |
-|------|---------|----------------|-------------------|
-| 1 | Elastic official EDOT docs | Every 3 days | 14 days |
-| 2 | Elastic GitHub repos | Weekly | 21 days |
-| 3 | OpenTelemetry project docs & repos | Weekly | 30 days |
-| 4 | Elastic blogs and tutorials | Bi-weekly | 45 days |
-| 5 | Community resources | Bi-weekly | 45 days |
+```text
+scripts/knowledge-base/
+├── config/
+│   ├── sources.yaml
+│   ├── index_mappings/
+│   │   ├── docs.json
+│   │   └── github.json
+│   ├── ingest_pipelines/
+│   └── agent_builder/
+├── crawler-configs/
+│   ├── elastic-docs.yml
+│   ├── otel-docs.yml
+│   └── blogs.yml
+├── scripts/
+│   └── run_crawler.sh
+├── ingest/
+│   ├── base.py
+│   ├── github_supplements.py
+│   └── run_ingestion.py
+├── setup/
+├── connectors/
+├── freshness/
+└── tests/
+```

@@ -27,11 +27,8 @@ console = Console()
 logger = logging.getLogger(__name__)
 
 ALL_INDICES = [
-    "edot-assistant-docs-elastic",
-    "edot-assistant-docs-otel",
-    "edot-assistant-github-repos",
-    "edot-assistant-blogs",
-    "edot-assistant-community",
+    "edot-kb-docs",
+    "edot-kb-github",
 ]
 
 
@@ -145,7 +142,7 @@ def main(as_json: bool) -> None:
         last_str = m["last_crawled"][:19] if m["last_crawled"] else "-"
 
         table.add_row(
-            m["index"].replace("edot-assistant-", ""),
+            m["index"].replace("edot-kb-", ""),
             str(m["doc_count"]),
             size_str,
             avg_str,

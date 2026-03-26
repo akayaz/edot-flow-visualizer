@@ -3,7 +3,7 @@
   "type": "esql",
   "description": "Search for YAML configurations, code examples, and deployment patterns from EDOT and OTel repositories. Use when the user needs concrete configuration snippets or implementation references.",
   "configuration": {
-    "query": "FROM edot-assistant-github-repos | WHERE body_semantic MATCH ?query AND content_type IN (\"yaml_config\", \"code_example\", \"config\", \"example\", \"readme\") | KEEP title, body, url, repo, language_sdk | SORT _score DESC | LIMIT 5"
+    "query": "FROM edot-kb-github METADATA _score | WHERE (MATCH(code_semantic, ?query) OR MATCH(body_semantic, ?query)) AND content_type IN (\"yaml_config\", \"code_example\", \"config\", \"example\", \"readme\", \"repository\") | KEEP title, body, url, repo, language_sdk, content_type, _score | SORT _score DESC | LIMIT 5"
   },
   "params": {
     "query": {

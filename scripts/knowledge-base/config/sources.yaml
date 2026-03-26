@@ -1,379 +1,188 @@
 # EDOT Assistant — Source Registry
-# All authoritative sources organized by priority tier.
-# Used by ingestion pipelines (Jina Reader, GitHub Supplements) and
-# the Elastic GitHub connector setup script.
+# Curated, trusted sources for crawling and GitHub supplement ingestion.
 
 sources:
-  # ─────────────────────────────────────────────────────────────────
-  # Tier 1 — Elastic Official Documentation (Highest Authority)
-  # Refresh: Every 3 days | Freshness threshold: 14 days
-  # Ingestion: Jina Reader
-  # ─────────────────────────────────────────────────────────────────
+  # Tier 1: Elastic official EDOT documentation (highest authority)
   tier_1:
-    - url: "https://www.elastic.co/docs/reference/opentelemetry"
-      name: "EDOT Main Documentation"
-      index: "edot-assistant-docs-elastic"
-      content_selector: "article, .main-content, .documentation-content"
-      remove_selector: "nav, footer, .sidebar, #ads, .cookie-banner"
-      sitemap: "https://www.elastic.co/sitemap.xml"
-      sitemap_filter: "/docs/reference/opentelemetry"
+    - name: "EDOT Main Documentation"
+      url: "https://www.elastic.co/docs/reference/opentelemetry"
+      index: "edot-kb-docs"
+      source: "elastic_docs"
       content_type: "documentation"
       refresh_days: 3
       tags: ["edot", "reference"]
-
-    - url: "https://www.elastic.co/docs/reference/edot-collector"
-      name: "EDOT Collector Docs"
-      index: "edot-assistant-docs-elastic"
-      content_selector: "article, .main-content, .documentation-content"
-      remove_selector: "nav, footer, .sidebar, #ads, .cookie-banner"
-      sitemap: "https://www.elastic.co/sitemap.xml"
-      sitemap_filter: "/docs/reference/edot-collector"
+    - name: "EDOT Collector Docs"
+      url: "https://www.elastic.co/docs/reference/edot-collector"
+      index: "edot-kb-docs"
+      source: "elastic_docs"
       content_type: "documentation"
       refresh_days: 3
-      tags: ["edot", "collector", "reference"]
-
-    - url: "https://www.elastic.co/docs/reference/opentelemetry/edot-sdks/python"
-      name: "EDOT Python SDK"
-      index: "edot-assistant-docs-elastic"
-      content_selector: "article, .main-content, .documentation-content"
-      remove_selector: "nav, footer, .sidebar, #ads, .cookie-banner"
+      tags: ["edot", "collector"]
+    - name: "Elastic OTel Integration Guide"
+      url: "https://www.elastic.co/docs/solutions/observability/apm/opentelemetry"
+      index: "edot-kb-docs"
+      source: "elastic_docs"
       content_type: "documentation"
-      language_sdk: "python"
-      refresh_days: 3
-      tags: ["edot", "sdk", "python"]
+      refresh_days: 7
+      tags: ["elastic", "opentelemetry", "apm"]
 
-    - url: "https://www.elastic.co/docs/reference/opentelemetry/edot-sdks/java"
-      name: "EDOT Java SDK"
-      index: "edot-assistant-docs-elastic"
-      content_selector: "article, .main-content, .documentation-content"
-      remove_selector: "nav, footer, .sidebar, #ads, .cookie-banner"
-      content_type: "documentation"
-      language_sdk: "java"
-      refresh_days: 3
-      tags: ["edot", "sdk", "java"]
-
-    - url: "https://www.elastic.co/docs/reference/opentelemetry/edot-sdks/node"
-      name: "EDOT Node.js SDK"
-      index: "edot-assistant-docs-elastic"
-      content_selector: "article, .main-content, .documentation-content"
-      remove_selector: "nav, footer, .sidebar, #ads, .cookie-banner"
-      content_type: "documentation"
-      language_sdk: "nodejs"
-      refresh_days: 3
-      tags: ["edot", "sdk", "nodejs"]
-
-    - url: "https://www.elastic.co/docs/reference/opentelemetry/edot-sdks/dotnet"
-      name: "EDOT .NET SDK"
-      index: "edot-assistant-docs-elastic"
-      content_selector: "article, .main-content, .documentation-content"
-      remove_selector: "nav, footer, .sidebar, #ads, .cookie-banner"
-      content_type: "documentation"
-      language_sdk: "dotnet"
-      refresh_days: 3
-      tags: ["edot", "sdk", "dotnet"]
-
-    - url: "https://www.elastic.co/docs/reference/opentelemetry/edot-sdks/android"
-      name: "EDOT Android SDK"
-      index: "edot-assistant-docs-elastic"
-      content_selector: "article, .main-content, .documentation-content"
-      remove_selector: "nav, footer, .sidebar, #ads, .cookie-banner"
-      content_type: "documentation"
-      language_sdk: "android"
-      refresh_days: 3
-      tags: ["edot", "sdk", "android"]
-
-    - url: "https://www.elastic.co/docs/reference/opentelemetry/compatibility/data-streams"
-      name: "EDOT Data Streams Compatibility"
-      index: "edot-assistant-docs-elastic"
-      content_selector: "article, .main-content, .documentation-content"
-      remove_selector: "nav, footer, .sidebar, #ads, .cookie-banner"
-      content_type: "documentation"
-      refresh_days: 3
-      tags: ["edot", "compatibility", "data-streams"]
-
-    - url: "https://www.elastic.co/docs/solutions/observability/apm/opentelemetry"
-      name: "Elastic OTel Integration Guide"
-      index: "edot-assistant-docs-elastic"
-      content_selector: "article, .main-content, .documentation-content"
-      remove_selector: "nav, footer, .sidebar, #ads, .cookie-banner"
-      content_type: "documentation"
-      refresh_days: 3
-      tags: ["elastic", "apm", "opentelemetry", "integration"]
-
-    - url: "https://www.elastic.co/docs/solutions/search/elastic-agent-builder"
-      name: "Agent Builder Documentation"
-      index: "edot-assistant-docs-elastic"
-      content_selector: "article, .main-content, .documentation-content"
-      remove_selector: "nav, footer, .sidebar, #ads, .cookie-banner"
-      content_type: "documentation"
-      refresh_days: 3
-      tags: ["agent-builder", "search"]
-
-    - url: "https://www.elastic.co/docs/solutions/search/semantic-search"
-      name: "Semantic Search Docs"
-      index: "edot-assistant-docs-elastic"
-      content_selector: "article, .main-content, .documentation-content"
-      remove_selector: "nav, footer, .sidebar, #ads, .cookie-banner"
-      content_type: "documentation"
-      refresh_days: 14
-      tags: ["semantic-search", "elser"]
-
-  # ─────────────────────────────────────────────────────────────────
-  # Tier 2 — Elastic GitHub Repositories (Source of Truth for Code)
-  # Refresh: Weekly | Freshness threshold: 21 days
-  # Ingestion: Elastic GitHub Connector (markdown/issues/PRs)
-  #            + Supplementary Script (YAML/releases/code)
-  # ─────────────────────────────────────────────────────────────────
+  # Tier 2: Elastic repositories
   tier_2:
-    - repo: "elastic/opentelemetry"
-      name: "EDOT Main Repo"
-      index: "edot-assistant-github-repos"
+    - name: "EDOT Main Repo"
+      repo: "elastic/opentelemetry"
+      index: "edot-kb-github"
       content_type: "repository"
       refresh_days: 7
       tags: ["edot", "main"]
       supplement_dirs: ["docs", "examples", "config"]
-
-    - repo: "elastic/elastic-otel-python"
-      name: "EDOT Python SDK Source"
-      index: "edot-assistant-github-repos"
+    - name: "EDOT Python SDK Source"
+      repo: "elastic/elastic-otel-python"
+      index: "edot-kb-github"
       content_type: "repository"
       language_sdk: "python"
       refresh_days: 7
       tags: ["edot", "sdk", "python"]
-      supplement_dirs: ["docs", "examples", "tests"]
-
-    - repo: "elastic/elastic-otel-java"
-      name: "EDOT Java SDK Source"
-      index: "edot-assistant-github-repos"
+      supplement_dirs: ["docs", "examples"]
+    - name: "EDOT Java SDK Source"
+      repo: "elastic/elastic-otel-java"
+      index: "edot-kb-github"
       content_type: "repository"
       language_sdk: "java"
       refresh_days: 7
       tags: ["edot", "sdk", "java"]
       supplement_dirs: ["docs", "examples"]
-
-    - repo: "elastic/elastic-otel-node"
-      name: "EDOT Node.js SDK Source"
-      index: "edot-assistant-github-repos"
+    - name: "EDOT Node SDK Source"
+      repo: "elastic/elastic-otel-node"
+      index: "edot-kb-github"
       content_type: "repository"
       language_sdk: "nodejs"
       refresh_days: 7
       tags: ["edot", "sdk", "nodejs"]
       supplement_dirs: ["docs", "examples"]
-
-    - repo: "elastic/elastic-otel-dotnet"
-      name: "EDOT .NET SDK Source"
-      index: "edot-assistant-github-repos"
+    - name: "EDOT .NET SDK Source"
+      repo: "elastic/elastic-otel-dotnet"
+      index: "edot-kb-github"
       content_type: "repository"
       language_sdk: "dotnet"
       refresh_days: 7
       tags: ["edot", "sdk", "dotnet"]
       supplement_dirs: ["docs", "examples"]
-
-    - repo: "elastic/elastic-otel-android"
-      name: "EDOT Android SDK Source"
-      index: "edot-assistant-github-repos"
+    - name: "EDOT Android SDK Source"
+      repo: "elastic/elastic-otel-android"
+      index: "edot-kb-github"
       content_type: "repository"
       language_sdk: "android"
       refresh_days: 14
       tags: ["edot", "sdk", "android"]
       supplement_dirs: ["docs", "examples"]
-
-    - repo: "elastic/opentelemetry-demo"
-      name: "Elastic OTel Demo Fork"
-      index: "edot-assistant-github-repos"
+    - name: "Elastic OTel Demo Fork"
+      repo: "elastic/opentelemetry-demo"
+      index: "edot-kb-github"
       content_type: "repository"
       refresh_days: 14
       tags: ["edot", "demo"]
       supplement_dirs: ["src", "docker"]
 
-    - repo: "elastic/elasticsearch-labs"
-      name: "Elasticsearch Labs"
-      index: "edot-assistant-github-repos"
-      content_type: "repository"
-      refresh_days: 7
-      tags: ["elastic", "labs", "agent-builder"]
-      supplement_dirs: ["notebooks", "example-apps"]
-
-  # ─────────────────────────────────────────────────────────────────
-  # Tier 3 — OpenTelemetry Project Official Sources
-  # Refresh: Weekly (web) / Bi-weekly (GitHub) | Threshold: 30 days
-  # Ingestion: Jina Reader (web) + GitHub Connector + Supplements
-  # ─────────────────────────────────────────────────────────────────
+  # Tier 3: OpenTelemetry official docs + upstream repos
   tier_3:
-    # Web documentation
-    - url: "https://opentelemetry.io/docs"
-      name: "OTel Documentation Site"
-      index: "edot-assistant-docs-otel"
-      content_selector: "article, .main-content, .td-content"
-      remove_selector: "nav, footer, .sidebar, .breadcrumb"
-      sitemap: "https://opentelemetry.io/sitemap.xml"
-      sitemap_filter: "/docs/"
+    - name: "OTel Documentation Site"
+      url: "https://opentelemetry.io/docs"
+      index: "edot-kb-docs"
+      source: "otel_docs"
       content_type: "documentation"
       refresh_days: 7
       tags: ["otel", "docs"]
-
-    # GitHub repositories
-    - repo: "open-telemetry/opentelemetry-specification"
-      name: "OTel Specification"
-      index: "edot-assistant-github-repos"
+    - name: "OTel Specification"
+      repo: "open-telemetry/opentelemetry-specification"
+      index: "edot-kb-github"
       content_type: "repository"
       refresh_days: 14
       tags: ["otel", "specification"]
       supplement_dirs: ["specification"]
-
-    - repo: "open-telemetry/opentelemetry-collector"
-      name: "OTel Collector Core"
-      index: "edot-assistant-github-repos"
+    - name: "OTel Collector Core"
+      repo: "open-telemetry/opentelemetry-collector"
+      index: "edot-kb-github"
       content_type: "repository"
       refresh_days: 14
       tags: ["otel", "collector", "core"]
       supplement_dirs: ["examples", "config"]
-
-    - repo: "open-telemetry/opentelemetry-collector-contrib"
-      name: "OTel Collector Contrib"
-      index: "edot-assistant-github-repos"
+    - name: "OTel Collector Contrib"
+      repo: "open-telemetry/opentelemetry-collector-contrib"
+      index: "edot-kb-github"
       content_type: "repository"
       refresh_days: 7
       tags: ["otel", "collector", "contrib"]
       supplement_dirs: ["receiver", "processor", "exporter", "examples"]
-
-    - repo: "open-telemetry/opentelemetry-python"
-      name: "OTel Python SDK"
-      index: "edot-assistant-github-repos"
+    - name: "OTel Python SDK"
+      repo: "open-telemetry/opentelemetry-python"
+      index: "edot-kb-github"
       content_type: "repository"
       language_sdk: "python"
       refresh_days: 14
       tags: ["otel", "sdk", "python"]
       supplement_dirs: ["docs", "examples"]
-
-    - repo: "open-telemetry/opentelemetry-java"
-      name: "OTel Java SDK"
-      index: "edot-assistant-github-repos"
+    - name: "OTel Java SDK"
+      repo: "open-telemetry/opentelemetry-java"
+      index: "edot-kb-github"
       content_type: "repository"
       language_sdk: "java"
       refresh_days: 14
       tags: ["otel", "sdk", "java"]
       supplement_dirs: ["docs", "examples"]
-
-    - repo: "open-telemetry/opentelemetry-js"
-      name: "OTel JavaScript SDK"
-      index: "edot-assistant-github-repos"
+    - name: "OTel JavaScript SDK"
+      repo: "open-telemetry/opentelemetry-js"
+      index: "edot-kb-github"
       content_type: "repository"
       language_sdk: "nodejs"
       refresh_days: 14
       tags: ["otel", "sdk", "javascript"]
       supplement_dirs: ["doc", "examples"]
-
-    - repo: "open-telemetry/opentelemetry-demo"
-      name: "OTel Demo (Astronomy Shop)"
-      index: "edot-assistant-github-repos"
+    - name: "OTel Demo"
+      repo: "open-telemetry/opentelemetry-demo"
+      index: "edot-kb-github"
       content_type: "repository"
-      refresh_days: 30
+      refresh_days: 21
       tags: ["otel", "demo"]
       supplement_dirs: ["src", "docker"]
-
-    - repo: "open-telemetry/opentelemetry-helm-charts"
-      name: "OTel Helm Charts"
-      index: "edot-assistant-github-repos"
-      content_type: "repository"
-      refresh_days: 14
-      tags: ["otel", "helm", "kubernetes"]
-      supplement_dirs: ["charts"]
-
-    - repo: "open-telemetry/opentelemetry-operator"
-      name: "OTel Operator"
-      index: "edot-assistant-github-repos"
+    - name: "OTel Operator"
+      repo: "open-telemetry/opentelemetry-operator"
+      index: "edot-kb-github"
       content_type: "repository"
       refresh_days: 14
       tags: ["otel", "operator", "kubernetes"]
       supplement_dirs: ["docs", "config"]
-
-    - repo: "open-telemetry/semantic-conventions"
-      name: "OTel Semantic Conventions"
-      index: "edot-assistant-github-repos"
+    - name: "OTel Semantic Conventions"
+      repo: "open-telemetry/semantic-conventions"
+      index: "edot-kb-github"
       content_type: "repository"
       refresh_days: 30
       tags: ["otel", "semantic-conventions"]
       supplement_dirs: ["docs", "model"]
 
-  # ─────────────────────────────────────────────────────────────────
-  # Tier 4 — Elastic Blogs and Community Content
-  # Refresh: Bi-weekly | Freshness threshold: 45 days
-  # Ingestion: Jina Reader
-  # ─────────────────────────────────────────────────────────────────
+  # Tier 4: Highly recommended blogs/tutorials
   tier_4:
-    - url: "https://www.elastic.co/observability-labs/blog"
-      name: "Elastic Observability Labs Blog"
-      index: "edot-assistant-blogs"
-      content_selector: "article, .main-content, .blog-content"
-      remove_selector: "nav, footer, .sidebar, #ads, .cookie-banner"
+    - name: "Elastic Observability Labs Blog"
+      url: "https://www.elastic.co/observability-labs/blog"
+      index: "edot-kb-docs"
+      source: "elastic_blog"
       content_type: "blog"
       refresh_days: 7
       tags: ["elastic", "blog", "observability"]
-
-    - url: "https://www.elastic.co/search-labs/blog"
-      name: "Elastic Search Labs Blog"
-      index: "edot-assistant-blogs"
-      content_selector: "article, .main-content, .blog-content"
-      remove_selector: "nav, footer, .sidebar, #ads, .cookie-banner"
+    - name: "Elastic Search Labs Blog"
+      url: "https://www.elastic.co/search-labs/blog"
+      index: "edot-kb-docs"
+      source: "elastic_blog"
       content_type: "blog"
       refresh_days: 7
-      tags: ["elastic", "blog", "search-labs", "agent-builder"]
-
-    - url: "https://www.elastic.co/blog"
-      name: "Elastic Main Blog"
-      index: "edot-assistant-blogs"
-      content_selector: "article, .main-content, .blog-content"
-      remove_selector: "nav, footer, .sidebar, #ads, .cookie-banner"
-      content_type: "blog"
-      refresh_days: 7
-      tags: ["elastic", "blog"]
-
-    - url: "https://www.elastic.co/search-labs/integrations/jina"
-      name: "Jina AI Integration Page"
-      index: "edot-assistant-blogs"
-      content_selector: "article, .main-content"
-      remove_selector: "nav, footer, .sidebar"
-      content_type: "tutorial"
-      refresh_days: 30
-      tags: ["jina", "integration"]
-
-    - url: "https://opentelemetry.io/blog"
-      name: "OTel Blog"
-      index: "edot-assistant-blogs"
-      content_selector: "article, .main-content, .td-content"
-      remove_selector: "nav, footer, .sidebar"
+      tags: ["elastic", "blog", "search-labs"]
+    - name: "OTel Blog"
+      url: "https://opentelemetry.io/blog"
+      index: "edot-kb-docs"
+      source: "otel_blog"
       content_type: "blog"
       refresh_days: 7
       tags: ["otel", "blog"]
 
-  # ─────────────────────────────────────────────────────────────────
-  # Tier 5 — Community and Ecosystem Resources
-  # Refresh: Monthly | Freshness threshold: 45 days
-  # Ingestion: Jina Reader
-  # ─────────────────────────────────────────────────────────────────
-  tier_5:
-    - url: "https://github.com/magsther/awesome-opentelemetry"
-      name: "awesome-opentelemetry"
-      index: "edot-assistant-community"
-      content_selector: "article, .main-content, .markdown-body"
-      remove_selector: "nav, footer, .sidebar"
-      content_type: "curated-list"
-      refresh_days: 30
-      tags: ["community", "awesome-list"]
-
-    - url: "https://opentelemetry.io/ecosystem/registry"
-      name: "OTel Registry"
-      index: "edot-assistant-community"
-      content_selector: "article, .main-content, .td-content"
-      remove_selector: "nav, footer, .sidebar"
-      content_type: "registry"
-      refresh_days: 30
-      tags: ["otel", "registry", "instrumentation"]
-
-# ─────────────────────────────────────────────────────────────────
-# Tier-level configuration defaults
-# ─────────────────────────────────────────────────────────────────
 tier_defaults:
   tier_1:
     source_tier: "tier_1"
@@ -391,17 +200,7 @@ tier_defaults:
     source_tier: "tier_4"
     boost: 1.0
     max_freshness_days: 45
-  tier_5:
-    source_tier: "tier_5"
-    boost: 0.8
-    max_freshness_days: 45
 
-# ─────────────────────────────────────────────────────────────────
-# GitHub connector configuration
-# These repos are handled by the Elastic GitHub connector for
-# markdown, issues, and PRs. The supplementary script handles
-# YAML configs, releases, and code examples.
-# ─────────────────────────────────────────────────────────────────
 github_connector:
   edot_repos:
     org_name: "elastic"
@@ -413,13 +212,11 @@ github_connector:
       - "elastic/elastic-otel-dotnet"
       - "elastic/elastic-otel-android"
       - "elastic/opentelemetry-demo"
-      - "elastic/elasticsearch-labs"
   otel_repos:
     repositories:
       - "open-telemetry/opentelemetry-collector"
       - "open-telemetry/opentelemetry-collector-contrib"
       - "open-telemetry/opentelemetry-specification"
       - "open-telemetry/opentelemetry-demo"
-      - "open-telemetry/opentelemetry-helm-charts"
       - "open-telemetry/opentelemetry-operator"
       - "open-telemetry/semantic-conventions"

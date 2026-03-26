@@ -1,7 +1,8 @@
 """Create Elasticsearch indices for the EDOT Assistant knowledge base.
 
-Creates versioned indices with semantic_text mappings and sets up aliases
-for zero-downtime reindexing.
+Creates the two consolidated indices:
+- edot-kb-docs
+- edot-kb-github
 
 Usage:
     python -m setup.create_indices
@@ -15,7 +16,7 @@ from pathlib import Path
 
 import click
 from dotenv import load_dotenv
-from elasticsearch import Elasticsearch, NotFoundError
+from elasticsearch import Elasticsearch
 from rich.console import Console
 from rich.table import Table
 
@@ -23,13 +24,10 @@ load_dotenv()
 console = Console()
 logger = logging.getLogger(__name__)
 
-# Index definitions: (mapping_file, versioned_index_name, alias_name)
+# Index definitions: (mapping_file, index_name)
 INDEX_DEFINITIONS = [
-    ("docs_elastic.json", "edot-assistant-docs-elastic-v1", "edot-assistant-docs-elastic"),
-    ("docs_otel.json", "edot-assistant-docs-otel-v1", "edot-assistant-docs-otel"),
-    ("github_repos.json", "edot-assistant-github-repos-v1", "edot-assistant-github-repos"),
-    ("blogs.json", "edot-assistant-blogs-v1", "edot-assistant-blogs"),
-    ("community.json", "edot-assistant-community-v1", "edot-assistant-community"),
+    ("docs.json", "edot-kb-docs"),
+    ("github.json", "edot-kb-github"),
 ]
 
 MAPPINGS_DIR = Path(__file__).parent.parent / "config" / "index_mappings"
@@ -63,20 +61,13 @@ def create_index(
     es: Elasticsearch,
     mapping_file: str,
     index_name: str,
-    alias_name: str,
 ) -> bool:
-    """Create a single index with mapping and alias."""
-    console.print(f"\n[bold]Creating index:[/bold] {index_name} -> {alias_name}")
+    """Create a single index with mapping."""
+    console.print(f"\n[bold]Creating index:[/bold] {index_name}")
 
     # Check if index already exists
     if es.indices.exists(index=index_name):
         console.print(f"  [yellow]Index already exists.[/yellow] Skipping creation.")
-        # Ensure alias exists
-        if not es.indices.exists_alias(name=alias_name):
-            es.indices.put_alias(index=index_name, name=alias_name)
-            console.print(f"  [green]Alias created:[/green] {alias_name}")
-        else:
-            console.print(f"  [dim]Alias already exists.[/dim]")
         return True
 
     # Load mapping
@@ -89,10 +80,6 @@ def create_index(
             body=mapping,
         )
         console.print(f"  [green]Index created.[/green]")
-
-        # Create alias
-        es.indices.put_alias(index=index_name, name=alias_name)
-        console.print(f"  [green]Alias created:[/green] {alias_name}")
 
         # Verify mapping
         actual_mapping = es.indices.get_mapping(index=index_name)
@@ -118,26 +105,27 @@ def verify_indices(es: Elasticsearch) -> None:
     """Verify all indices exist and show their status."""
     console.print("\n[bold]Index Status:[/bold]")
     table = Table(title="EDOT Assistant Indices")
-    table.add_column("Alias", style="cyan")
-    table.add_column("Index", style="green")
+    table.add_column("Index", style="cyan")
     table.add_column("Docs", justify="right")
-    table.add_column("Size", justify="right")
+    table.add_column("Semantic Field", justify="right")
     table.add_column("Status", style="bold")
 
-    for _, index_name, alias_name in INDEX_DEFINITIONS:
+    for _, index_name in INDEX_DEFINITIONS:
         try:
             if es.indices.exists(index=index_name):
-                # Use count API (serverless-compatible) instead of _stats
                 count_result = es.count(index=index_name)
                 doc_count = count_result.get("count", 0)
-                alias_ok = es.indices.exists_alias(name=alias_name)
-                status = "[green]OK[/green]" if alias_ok else "[yellow]No alias[/yellow]"
-                table.add_row(alias_name, index_name, str(doc_count), "-", status)
+                mapping = es.indices.get_mapping(index=index_name)
+                props = mapping.get(index_name, {}).get("mappings", {}).get("properties", {})
+                semantic_ok = "body_semantic" in props
+                semantic_field = "yes" if semantic_ok else "no"
+                status = "[green]OK[/green]" if semantic_ok else "[yellow]Missing semantic_text[/yellow]"
+                table.add_row(index_name, str(doc_count), semantic_field, status)
             else:
-                table.add_row(alias_name, index_name, "-", "-", "[red]Missing[/red]")
+                table.add_row(index_name, "-", "-", "[red]Missing[/red]")
         except Exception as e:
             from rich.markup import escape
-            table.add_row(alias_name, index_name, "-", "-", f"[red]{escape(str(e))}[/red]")
+            table.add_row(index_name, "-", "-", f"[red]{escape(str(e))}[/red]")
 
     console.print(table)
 
@@ -177,7 +165,7 @@ def main(verify_only: bool, delete_existing: bool) -> None:
 
     if delete_existing:
         console.print("\n[red bold]Deleting existing indices...[/red bold]")
-        for _, index_name, alias_name in INDEX_DEFINITIONS:
+        for _, index_name in INDEX_DEFINITIONS:
             try:
                 if es.indices.exists(index=index_name):
                     es.indices.delete(index=index_name)
@@ -187,9 +175,9 @@ def main(verify_only: bool, delete_existing: bool) -> None:
 
     # Create all indices
     results = []
-    for mapping_file, index_name, alias_name in INDEX_DEFINITIONS:
-        ok = create_index(es, mapping_file, index_name, alias_name)
-        results.append((alias_name, ok))
+    for mapping_file, index_name in INDEX_DEFINITIONS:
+        ok = create_index(es, mapping_file, index_name)
+        results.append((index_name, ok))
 
     # Verify
     verify_indices(es)
